@@ -1,0 +1,34 @@
+[
+    {
+        "id": 1,
+        "name": "Kevin Apul",
+        "email": "kevin@amora.com",
+        "email_verified_at": null,
+        "created_at": "2025-12-10T07:48:53.000000Z",
+        "updated_at": "2025-12-10T07:48:53.000000Z"
+    },
+    {
+        "id": 2,
+        "name": "Rizky Lestari",
+        "email": "lestari@admin.com",
+        "email_verified_at": null,
+        "created_at": "2025-12-11T05:14:42.000000Z",
+        "updated_at": "2025-12-11T05:14:42.000000Z"
+    },
+    {
+        "id": 3,
+        "name": "arief.commercial",
+        "email": "arief@commercial.com",
+        "email_verified_at": null,
+        "created_at": "2025-12-11T05:29:23.000000Z",
+        "updated_at": "2025-12-11T05:29:23.000000Z"
+    },
+    {
+        "id": 4,
+        "name": "Sausan Bachdar",
+        "email": "sausan@marketing.com",
+        "email_verified_at": null,
+        "created_at": "2025-12-11T05:42:58.000000Z",
+        "updated_at": "2025-12-11T05:42:58.000000Z"
+    }
+]
