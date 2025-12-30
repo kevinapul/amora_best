@@ -1,99 +1,131 @@
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800">
-            Peserta Event – {{ $event->training->name }} ({{ $event->job_number }})
+            Administrasi Sertifikat Training
         </h2>
     </x-slot>
 
-    <div class="py-8 max-w-7xl mx-auto">
+    <div class="py-6 max-w-7xl mx-auto space-y-6">
 
-        <!-- Tombol Tambah Peserta -->
-        <div class="mb-4">
-            <a href="{{ route('event-participant.create', $event->id) }}"
-               class="px-4 py-2 bg-green-600 text-white rounded">
-               Tambah Peserta
-            </a>
-        </div>
+        @forelse ($events as $event)
+            <div class="bg-white shadow rounded-lg overflow-hidden">
 
-        <table class="w-full bg-white border rounded">
-            <thead class="bg-gray-100">
-                <tr>
-                    <th class="p-3 border">Nama</th>
-                    <th class="p-3 border">Perusahaan</th>
-                    <th class="p-3 border">No HP</th>
-                    <th class="p-3 border text-center">Harga</th>
-                    <th class="p-3 border text-center">Paid</th>
-                    <th class="p-3 border text-center">Sertifikat</th>
-                    <th class="p-3 border text-center">Aksi</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($event->participants as $p)
-                    <tr class="border-t hover:bg-gray-50">
-                        <td class="p-3">{{ $p->nama }}</td>
-                        <td class="p-3">{{ $p->perusahaan ?? '-' }}</td>
-                        <td class="p-3">{{ $p->no_hp ?? '-' }}</td>
-                        <td class="p-3 text-center">
-                            {{ $p->pivot->harga_peserta }}
-                        </td>
-                        <td class="p-3 text-center">
-                            @if($p->pivot->is_paid)
-                                <span class="text-green-700 font-bold">✔</span>
-                                <br>
-                                <small>{{ $p->pivot->paid_at?->format('d M Y') }}</small>
-                            @else
-                                <span class="text-red-600 font-bold">✖</span>
-                            @endif
-                        </td>
-                        <td class="p-3 text-center">
-                            @if($p->pivot->certificate_ready)
-                                <span class="text-green-700 font-bold">✔</span>
-                                <br>
-                                <small>{{ $p->pivot->certificate_issued_at?->format('d M Y') }}</small>
-                            @else
-                                <span class="text-yellow-600 font-bold">⏳</span>
-                            @endif
-                        </td>
-                        <td class="p-3 text-center space-x-1">
-                            <!-- Tombol Mark Paid -->
-                            @if(!$p->pivot->is_paid)
-                                <form action="{{ route('event-participant.markPaid', [$event->id, $p->id]) }}"
-                                      method="POST" class="inline">
-                                    @csrf
-                                    <button type="submit"
-                                            class="px-2 py-1 bg-blue-600 text-white rounded text-sm">
-                                        Mark Paid
-                                    </button>
-                                </form>
-                            @endif
+                {{-- Header Event --}}
+                <div class="px-6 py-4 bg-gray-50 border-b">
+                    <div class="font-semibold text-gray-800">
+                        {{ $event->training->name }}
+                    </div>
+                    <div class="text-sm text-gray-500">
+                        {{ $event->job_number }} |
+                        {{ $event->tanggal_start }} - {{ $event->tanggal_end }}
+                    </div>
+                </div>
 
-                            <!-- Tombol Generate Certificate -->
-                            @if($p->pivot->is_paid && !$p->pivot->certificate_ready && $event->canGenerateCertificate())
-                                <form action="{{ route('event-participant.generateCertificate', [$event->id, $p->id]) }}"
-                                      method="POST" class="inline">
-                                    @csrf
-                                    <button type="submit"
-                                            class="px-2 py-1 bg-green-600 text-white rounded text-sm">
-                                        Generate Cert
-                                    </button>
-                                </form>
-                            @endif
+                {{-- Table --}}
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm border-collapse">
+                        <thead class="bg-gray-100 text-gray-700">
+                            <tr>
+                                <th class="px-4 py-3 border text-left">Nama Peserta</th>
+                                <th class="px-4 py-3 border text-center">Status Bayar</th>
+                                <th class="px-4 py-3 border text-left">Nomor Sertifikat</th>
+                                <th class="px-4 py-3 border text-center">Tanggal Terbit</th>
+                                <th class="px-4 py-3 border text-center w-1/4">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($event->participants as $participant)
+                                @php
+                                    $pivot = $participant->pivot;
+                                    $certificate = $participant->certificates
+                                        ->where('event_training_id', $event->id)
+                                        ->first();
+                                @endphp
 
-                            <!-- Tombol Hapus Peserta -->
-                            <form action="{{ route('event-participant.destroy', [$event->id, $p->id]) }}"
-                                  method="POST" class="inline">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit"
-                                        class="px-2 py-1 bg-red-600 text-white rounded text-sm">
-                                    Hapus
-                                </button>
-                            </form>
-                        </td>
-                    </tr>
-                @endforeach
-            </tbody>
-        </table>
+                                <tr class="hover:bg-gray-50">
+                                    {{-- Nama --}}
+                                    <td class="px-4 py-3 border">
+                                        {{ $participant->nama }}
+                                    </td>
+
+                                    {{-- Status Bayar --}}
+                                    <td class="px-4 py-3 border text-center">
+                                        @if ($event->isInhouse() || $pivot->is_paid)
+                                            <span
+                                                class="inline-block px-2 py-1 text-xs rounded bg-green-100 text-green-700 font-semibold">
+                                                Lunas
+                                            </span>
+                                        @else
+                                            <span
+                                                class="inline-block px-2 py-1 text-xs rounded bg-gray-200 text-gray-600 font-semibold">
+                                                Belum
+                                            </span>
+                                        @endif
+                                    </td>
+
+                                    {{-- Nomor Sertifikat --}}
+                                    <td class="px-4 py-3 border">
+                                        {{ $certificate->nomor_sertifikat ?? '-' }}
+                                    </td>
+
+                                    {{-- Tanggal Terbit --}}
+                                    <td class="px-4 py-3 border text-center">
+                                        {{ $certificate->tanggal_terbit ?? '-' }}
+                                    </td>
+
+                                    {{-- Aksi --}}
+                                    <td class="px-4 py-3 border">
+                                        @if (!$certificate)
+                                            <form
+                                                action="{{ route('event-participant.recordCertificate', [
+                                                    'event' => $event->id,
+                                                    'participant' => $participant->id,
+                                                ]) }}"
+                                                method="POST"
+                                                class="flex items-center gap-2"
+                                            >
+                                                @csrf
+
+                                                <input
+                                                    type="text"
+                                                    name="nomor_sertifikat"
+                                                    placeholder="Nomor"
+                                                    required
+                                                    class="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring focus:ring-blue-200"
+                                                >
+
+                                                <input
+                                                    type="date"
+                                                    name="tanggal_terbit"
+                                                    required
+                                                    class="px-2 py-1 text-sm border rounded focus:outline-none focus:ring focus:ring-blue-200"
+                                                >
+
+                                                <button
+                                                    type="submit"
+                                                    class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                                                >
+                                                    Simpan
+                                                </button>
+                                            </form>
+                                        @else
+                                            <span class="text-gray-500 italic text-sm">
+                                                Sudah dicatat
+                                            </span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        @empty
+            <div class="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded">
+                Belum ada event training yang selesai.
+            </div>
+        @endforelse
 
     </div>
 </x-app-layout>

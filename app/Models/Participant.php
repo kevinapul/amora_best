@@ -25,4 +25,12 @@ class Participant extends Model
     {
         return $this->hasMany(Certificate::class);
     }
+
+    public function certificateForEvent(int $eventTrainingId)
+{
+    return $this->certificates()
+        ->where('event_training_id', $eventTrainingId)
+        ->first();
+}
+
 }
