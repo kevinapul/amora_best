@@ -209,4 +209,39 @@ class EventTrainingController extends Controller
 
         return view('division.training.index', compact('events'));
     }
+
+    /* ================== LAPORAN ================== */
+public function laporan()
+{
+    $events = EventTraining::with(['training', 'participants'])
+        ->where('status', 'done')
+        ->orderBy('tanggal_end', 'DESC')
+        ->get()
+        ->map(function ($event) {
+
+            // TOTAL TAGIHAN
+            $totalTagihan = $event->isInhouse()
+                ? $event->harga_paket
+                : $event->participants->sum(
+                    fn ($p) => $p->pivot->harga_peserta
+                );
+
+            // TOTAL LUNAS
+            $totalLunas = $event->participants
+                ->where('pivot.is_paid', true)
+                ->sum(fn ($p) => $p->pivot->harga_peserta);
+
+            return (object) [
+                'event'          => $event,
+                'jenis_event'    => strtoupper($event->jenis_event),
+                'status_event'   => $event->status,
+                'total_peserta'  => $event->participants->count(),
+                'total_tagihan'  => $totalTagihan,
+                'total_lunas'    => $totalLunas,
+                'finance_ok'     => (bool) $event->finance_approved,
+            ];
+        });
+
+    return view('laporan.index', compact('events'));
+}
 }
