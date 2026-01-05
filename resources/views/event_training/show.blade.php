@@ -31,13 +31,23 @@
                 <p><strong>Job Number:</strong> {{ $event->job_number }}</p>
                 <p><strong>Tanggal:</strong> {{ $tanggal }}</p>
                 <p><strong>Tempat:</strong> {{ $event->tempat }}</p>
-                <p><strong>Jenis Event:</strong> {{ strtoupper($event->jenis_event) }}</p>
+                <p>
+                    <strong>Jenis Event:</strong>
+                    @if ($event->jenis_event === 'training')
+                        {{ ucfirst($event->jenis_event) }} {{ ucfirst($event->training_type) }}
+                    @elseif($event->jenis_event === 'non_training')
+                        {{ ucfirst($event->jenis_event) }} {{ ucfirst($event->non_training_type) }}
+                    @else
+                        {{ ucfirst($event->jenis_event) }}
+                    @endif
+                </p>
                 <p><strong>Sertifikasi:</strong> {{ $event->jenis_sertifikasi }}</p>
 
                 @if ($event->jenis_event === 'reguler')
                     <p class="mt-2">
                         <strong>Total Harga:</strong>
-                        Rp {{ number_format($event->participants->sum(fn($p) => $p->pivot->harga_peserta), 0, ',', '.') }}
+                        Rp
+                        {{ number_format($event->participants->sum(fn($p) => $p->pivot->harga_peserta), 0, ',', '.') }}
                     </p>
                 @else
                     <p class="mt-2">

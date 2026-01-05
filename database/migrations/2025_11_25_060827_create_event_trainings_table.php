@@ -1,53 +1,82 @@
-    <?php
+<?php
 
-    use Illuminate\Database\Migrations\Migration;
-    use Illuminate\Database\Schema\Blueprint;
-    use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
-    return new class extends Migration
+return new class extends Migration
+{
+    public function up()
     {
-        public function up()
-        {
-            Schema::create('event_trainings', function (Blueprint $table) {
-                $table->id();
+        Schema::create('event_trainings', function (Blueprint $table) {
+            $table->id();
 
-                $table->foreignId('training_id')
-                    ->constrained()
-                    ->cascadeOnDelete();
+            /* ================= CORE TYPE ================= */
 
-                $table->enum('jenis_event', ['reguler', 'inhouse'])
-                    ->default('reguler');
+            // TRAINING / NON TRAINING
+            $table->enum('jenis_event', [
+                'training',
+                'non_training'
+            ])->default('training');
 
-                $table->integer('harga_paket')->nullable();
+            // DETAIL TRAINING
+            $table->enum('training_type', [
+                'reguler',
+                'inhouse'
+            ])->nullable();
 
-                $table->string('job_number')->unique();
+            // DETAIL NON TRAINING
+            $table->enum('non_training_type', [
+                'perpanjangan',
+                'resertifikasi'
+            ])->nullable();
 
-                $table->date('tanggal_start');
-                $table->date('tanggal_end');
+            /* ================= RELATION ================= */
 
-                $table->string('tempat');
+            // null untuk non training
+            $table->foreignId('training_id')
+                ->nullable()
+                ->constrained()
+                ->nullOnDelete();
 
-                $table->string('jenis_sertifikasi')->nullable();
-                $table->string('sertifikasi')->nullable();
+            /* ================= EVENT INFO ================= */
 
-                // 🔑 FLOW CORE
-                $table->enum('status', [
-                    'pending',
-                    'active',
-                    'on_progress',
-                    'done'
-                ])->default('pending');
+            $table->integer('harga_paket')->nullable();
 
-                // 🔐 KEUANGAN
-                $table->boolean('finance_approved')->default(false);
-                $table->timestamp('finance_approved_at')->nullable();
+            $table->string('job_number')
+                ->nullable()
+                ->unique();
 
-                $table->timestamps();
-            });
-        }
+            $table->date('tanggal_start')->nullable();
+            $table->date('tanggal_end')->nullable();
 
-        public function down()
-        {
-            Schema::dropIfExists('event_trainings');
-        }
-    };
+            $table->string('tempat')->nullable();
+
+            /* ================= SERTIFIKASI ================= */
+
+            $table->string('jenis_sertifikasi')->nullable();
+            $table->string('sertifikasi')->nullable();
+
+            /* ================= FLOW STATUS ================= */
+
+            $table->enum('status', [
+                'pending',
+                'active',
+                'on_progress',
+                'done'
+            ])->default('pending');
+
+            /* ================= FINANCE ================= */
+
+            $table->boolean('finance_approved')->default(false);
+            $table->timestamp('finance_approved_at')->nullable();
+
+            $table->timestamps();
+        });
+    }
+
+    public function down()
+    {
+        Schema::dropIfExists('event_trainings');
+    }
+};

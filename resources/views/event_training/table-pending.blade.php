@@ -19,10 +19,14 @@
                 </td>
 
                 <td class="py-2 px-3">
-                    {{ $event->tanggal_start->format('d M Y') }}
-                    –
-                    {{ $event->tanggal_end->format('d M Y') }}
-                </td>
+    @if ($event->tanggal_start && $event->tanggal_end)
+        {{ $event->tanggal_start->format('d M Y') }}
+        –
+        {{ $event->tanggal_end->format('d M Y') }}
+    @else
+        <span class="italic text-gray-500">Belum ditentukan</span>
+    @endif
+</td>
 
                 <td class="p-2">{{ $event->tempat }}</td>
 

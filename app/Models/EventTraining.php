@@ -7,13 +7,13 @@ use Carbon\Carbon;
 
 class EventTraining extends Model
 {
-    /* ================= BASIC CONFIG ================= */
-
     protected $table = 'event_trainings';
 
     protected $fillable = [
         'training_id',
-        'jenis_event',
+        'jenis_event',          // training | non_training
+        'training_type',        // reguler | inhouse
+        'non_training_type',    // perpanjangan | resertifikasi
         'harga_paket',
         'job_number',
         'tanggal_start',
@@ -60,122 +60,100 @@ class EventTraining extends Model
         return $this->hasMany(Certificate::class);
     }
 
-    /* ================= STATUS CORE ================= */
-
-    /**
-     * Update status otomatis berdasarkan tanggal
-     * Panggil di controller / scheduler
-     */
-    public function refreshStatus(): void
+    public function staff()
     {
-        $today = Carbon::today();
-
-        // pending = manual
-        if ($this->status === 'pending') {
-            return;
-        }
-
-        if ($today->lt($this->tanggal_start)) {
-            $this->status = 'active';
-        } elseif ($today->between($this->tanggal_start, $this->tanggal_end)) {
-            $this->status = 'on_progress';
-        } elseif ($today->gt($this->tanggal_end)) {
-            $this->status = 'done';
-        }
-
-        $this->save();
-    }
-
-    /* ================= STATUS HELPERS ================= */
-
-    public function isPending(): bool
-    {
-        return $this->status === 'pending';
-    }
-
-    public function isActive(): bool
-    {
-        return $this->status === 'active';
-    }
-
-    public function isOnProgress(): bool
-    {
-        return $this->status === 'on_progress';
-    }
-
-    public function isDone(): bool
-    {
-        return $this->status === 'done';
+        return $this->hasMany(EventStaff::class);
     }
 
     /* ================= EVENT TYPE ================= */
 
+    public function isTraining(): bool
+    {
+        return $this->jenis_event === 'training';
+    }
+
+    public function isNonTraining(): bool
+    {
+        return $this->jenis_event === 'non_training';
+    }
+
     public function isReguler(): bool
     {
-        return $this->jenis_event === 'reguler';
+        return $this->training_type === 'reguler';
     }
 
     public function isInhouse(): bool
     {
-        return $this->jenis_event === 'inhouse';
+        return $this->training_type === 'inhouse';
     }
+
+    public function isPerpanjangan(): bool
+    {
+        return $this->non_training_type === 'perpanjangan';
+    }
+
+    public function isResertifikasi(): bool
+    {
+        return $this->non_training_type === 'resertifikasi';
+    }
+
+    /* ================= STATUS ENGINE ================= */
+
+    public function refreshStatus(): void
+{
+    // NON TRAINING → ga punya tanggal
+    if ($this->isNonTraining()) {
+        return;
+    }
+
+    // ⛔ BELUM ADA TANGGAL → JANGAN DIPROSES
+    if (! $this->tanggal_start || ! $this->tanggal_end) {
+        return;
+    }
+
+    if ($this->status === 'pending') {
+        return;
+    }
+
+    $today = Carbon::today();
+
+    if ($today->lt($this->tanggal_start)) {
+        $this->status = 'active';
+    } elseif ($today->between($this->tanggal_start, $this->tanggal_end)) {
+        $this->status = 'on_progress';
+    } else {
+        $this->status = 'done';
+    }
+
+    $this->save();
+}
 
     /* ================= BUSINESS RULES ================= */
 
-    /**
-     * Peserta boleh ditambah?
-     */
-    public function canAddParticipants(): bool
+    public function needFinanceApproval(): bool
     {
-        return in_array($this->status, ['active', 'on_progress']);
+        return $this->isTraining() && $this->isInhouse();
     }
 
-    /**
-     * Event boleh diedit?
-     */
-    public function canEdit(): bool
+    public function canInputCertificate(): bool
     {
-        return in_array($this->status, ['pending', 'active']);
+        if ($this->isPerpanjangan()) {
+            return true;
+        }
+
+        if ($this->isResertifikasi()) {
+            return $this->status === 'done';
+        }
+
+        return $this->status === 'done' && $this->finance_approved;
     }
 
-    /**
-     * Event boleh dihapus?
-     * DONE = LOCK TOTAL
-     */
-    public function canDelete(): bool
-    {
-        return $this->status === 'pending';
-    }
-
-    /* ================= CERTIFICATE RULE ENGINE ================= */
-
-    /**
-     * 🔹 INHOUSE
-     * Satu kali ACC finance → semua boleh dibuat
-     */
-    public function canGenerateCertificateInhouse(): bool
-    {
-        return $this->isInhouse()
-            && $this->status === 'done'
-            && $this->finance_approved;
-    }
-
-    /**
-     * 🔹 REGULER
-     * Minimal ada 1 peserta yang sudah bayar
-     */
-    public function hasParticipantReadyForCertificate(): bool
-    {
-        return $this->participants()
-            ->wherePivot('is_paid', true)
-            ->exists();
-    }
-
-    /**
-     * Untuk badge laporan
-     */
     public function certificateStatusLabel(): string
     {
+        if ($this->isPerpanjangan()) {
+            return 'Non Training';
+        }
+
         if ($this->status !== 'done') {
             return 'Belum selesai';
         }
@@ -186,10 +164,11 @@ class EventTraining extends Model
                 : 'Menunggu finance';
         }
 
-        // reguler
-        return $this->hasParticipantReadyForCertificate()
-            ? 'Sebagian siap'
-            : 'Belum ada pembayaran';
+        return $this->participants()
+            ->wherePivot('is_paid', true)
+            ->exists()
+                ? 'Sebagian siap'
+                : 'Belum ada pembayaran';
     }
 
     /* ================= FINANCE ================= */
@@ -201,24 +180,12 @@ class EventTraining extends Model
         $this->save();
     }
 
-    public function staff()
-    {
-        return $this->hasMany(EventStaff::class, 'event_training_id');
-    }
-
     public function certificateValidityYears(): ?int
     {
-        return match ($this->jenis_sertifikasi) {
-            'Kementrian', 'Kemnaker' => 5,
-            'Bnsp', 'BNSP'           => 4,
-            default                  => null, // Alkon Best Mandiri
+        return match (strtoupper($this->jenis_sertifikasi)) {
+            'KEMENTERIAN', 'KEMNAKER' => 5,
+            'BNSP'                  => 4,
+            default                 => null,
         };
     }
-
-    public function canInputCertificate(): bool
-{
-    return $this->status === 'done'
-        && $this->finance_approved === true;
-}
-
 }

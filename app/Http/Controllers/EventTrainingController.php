@@ -11,7 +11,7 @@ use Carbon\Carbon;
 
 class EventTrainingController extends Controller
 {
-    /* ================== LIST & SEARCH ================== */
+    /* ================== LIST ================== */
     public function index(Request $request)
     {
         $this->authorize('viewAny', EventTraining::class);
@@ -21,12 +21,14 @@ class EventTrainingController extends Controller
         $eventsActive = EventTraining::with('training')
             ->withCount('participants')
             ->whereIn('status', ['active', 'on_progress', 'done'])
-            ->when($search, function ($query) use ($search) {
-                $query->whereHas('training', fn ($q) =>
-                    $q->where('name', 'like', "%{$search}%")
-                )->orWhere('job_number', 'like', "%{$search}%");
+            ->when($search, function ($q) use ($search) {
+                $q->where(function ($sub) use ($search) {
+                    $sub->whereHas('training', fn ($t) =>
+                        $t->where('name', 'like', "%{$search}%")
+                    )->orWhere('job_number', 'like', "%{$search}%");
+                });
             })
-            ->orderBy('tanggal_start', 'DESC')
+            ->orderByDesc('tanggal_start')
             ->paginate(10)
             ->withQueryString();
 
@@ -34,13 +36,11 @@ class EventTrainingController extends Controller
             $event->refreshStatus();
         }
 
-        $eventsPending = auth()->user()->can('viewPending', EventTraining::class)
-            ? EventTraining::with('training')
-                ->withCount('participants')
-                ->where('status', 'pending')
-                ->orderBy('created_at', 'DESC')
-                ->get()
-            : null;
+        $eventsPending = EventTraining::with('training')
+            ->withCount('participants')
+            ->where('status', 'pending')
+            ->latest()
+            ->get();
 
         return view('event_training.index', compact(
             'eventsActive',
@@ -49,64 +49,113 @@ class EventTrainingController extends Controller
         ));
     }
 
-    /* ================== CRUD EVENT ================== */
+    /* ================== CREATE ================== */
     public function create()
     {
         $this->authorize('create', EventTraining::class);
+
         return view('event_training.create', [
-            'trainings' => Training::all()
+            'trainings' => Training::orderBy('code')->get()
         ]);
     }
 
-    public function store(Request $request)
-    {
-        $this->authorize('create', EventTraining::class);
+    /* ================== STORE ================== */
+public function store(Request $request)
+{
+    $this->authorize('create', EventTraining::class);
 
-        $request->validate([
-            'training_id' => 'required|exists:trainings,id',
-            'jenis_event' => 'required|in:reguler,inhouse',
-            'harga_paket' => 'nullable|numeric|required_if:jenis_event,inhouse',
-            'job_number'  => 'required|string|unique:event_trainings,job_number',
-            'start_day'   => 'required|integer',
-            'start_month' => 'required|integer',
-            'start_year'  => 'required|integer',
-            'end_day'     => 'required|integer',
-            'end_month'   => 'required|integer',
-            'end_year'    => 'required|integer',
-            'tempat' => 'required|string',
-            'jenis_sertifikasi' => 'required|in:Kementrian,Bnsp,Alkon Best Mandiri',
-            'sertifikasi' => 'nullable|string',
-        ]);
+    // validasi
+    $request->validate([
+        'jenis_event' => 'required|in:training,non_training',
+        'training_id'   => 'required_if:jenis_event,training|exists:trainings,id',
+        'training_type' => 'required_if:jenis_event,training|in:reguler,inhouse',
+        'harga_paket'   => 'nullable|required_if:training_type,inhouse|numeric',
+        'non_training_type' => 'nullable|required_if:jenis_event,non_training|in:perpanjangan,resertifikasi',
+        'job_number' => 'nullable|string|unique:event_trainings,job_number',
+        'start_day'   => 'required|integer|min:1|max:31',
+        'start_month' => 'required|integer|min:1|max:12',
+        'start_year'  => 'required|integer|min:'.date('Y').'|max:'.(date('Y')+3),
+        'end_day'     => 'required|integer|min:1|max:31',
+        'end_month'   => 'required|integer|min:1|max:12',
+        'end_year'    => 'required|integer|min:'.date('Y').'|max:'.(date('Y')+3),
+        'tempat' => 'nullable|string',
+        'jenis_sertifikasi' => 'nullable|string',
+        'sertifikasi' => 'nullable|string',
+    ]);
 
-        EventTraining::create([
-            'training_id' => $request->training_id,
-            'jenis_event' => $request->jenis_event,
-            'harga_paket' => $request->jenis_event === 'inhouse'
-                ? $request->harga_paket
-                : null,
-            'job_number' => $request->job_number,
-            'tanggal_start' => "{$request->start_year}-{$request->start_month}-{$request->start_day}",
-            'tanggal_end'   => "{$request->end_year}-{$request->end_month}-{$request->end_day}",
-            'tempat' => $request->tempat,
-            'jenis_sertifikasi' => $request->jenis_sertifikasi,
-            'sertifikasi' => $request->sertifikasi,
-            'status' => 'pending',
-        ]);
+    // gabungkan dropdown jadi tanggal Carbon
+    $tanggal_start = Carbon::create(
+        $request->start_year,
+        $request->start_month,
+        $request->start_day
+    )->startOfDay();
 
-        return redirect()->route('event-training.index')
-            ->with('success', 'Event training berhasil ditambahkan (Pending ACC).');
+    $tanggal_end = Carbon::create(
+        $request->end_year,
+        $request->end_month,
+        $request->end_day
+    )->endOfDay();
+
+    $data = [
+        'jenis_event' => $request->jenis_event,
+        'job_number'  => $request->job_number,
+        'tanggal_start' => $tanggal_start,
+        'tanggal_end'   => $tanggal_end,
+        'tempat' => $request->tempat,
+        'status' => 'pending',
+    ];
+
+    /* ===== TRAINING ===== */
+    if ($request->jenis_event === 'training') {
+        $data += [
+            'training_id'   => $request->training_id,
+            'training_type' => $request->training_type,
+            'harga_paket'   => $request->training_type === 'inhouse'
+                                ? $request->harga_paket
+                                : null,
+            'non_training_type' => null,
+        ];
     }
 
-    /* ================== APPROVAL & FINANCE ================== */
+    /* ===== NON TRAINING ===== */
+    if ($request->jenis_event === 'non_training') {
+        $data += [
+            'training_id' => null,
+            'training_type' => null,
+            'harga_paket' => null,
+            'non_training_type' => $request->non_training_type,
+        ];
+
+        if ($request->non_training_type === 'perpanjangan') {
+            $data['status'] = 'done';
+        }
+
+        if ($request->non_training_type === 'resertifikasi') {
+            $data['jenis_sertifikasi'] = 'Bnsp';
+        }
+    }
+
+    EventTraining::create($data);
+
+    return redirect()
+        ->route('event-training.index')
+        ->with('success', 'Event berhasil dibuat');
+}
+
+    /* ================== APPROVAL ================== */
     public function approve(EventTraining $eventTraining)
     {
         $this->authorize('approve', $eventTraining);
+
+        abort_if($eventTraining->status !== 'pending', 403);
+
         $eventTraining->update(['status' => 'active']);
         $eventTraining->refreshStatus();
 
-        return back()->with('success', 'Event berhasil di-ACC.');
+        return back()->with('success', 'Event di-ACC');
     }
 
+    /* ================== FINANCE ================== */
     public function approveFinance(EventTraining $eventTraining)
     {
         $this->authorize('approveFinance', $eventTraining);
@@ -124,16 +173,16 @@ class EventTrainingController extends Controller
             abort_if(
                 ! $eventTraining->participants->every(fn ($p) => $p->pivot->is_paid),
                 403,
-                'Masih ada peserta yang belum lunas.'
+                'Masih ada peserta belum lunas'
             );
         }
 
         $eventTraining->approveFinance();
 
-        return back()->with('success', 'Finance berhasil di-ACC.');
+        return back()->with('success', 'Finance di-ACC');
     }
 
-    /* ================== SHOW EVENT ================== */
+    /* ================== SHOW ================== */
     public function show(EventTraining $eventTraining)
     {
         $this->authorize('view', $eventTraining);
@@ -141,7 +190,6 @@ class EventTrainingController extends Controller
         $eventTraining->load([
             'training',
             'participants.certificates',
-            'participants' => fn ($q) => $q->orderBy('nama'),
             'staff'
         ]);
 
@@ -150,7 +198,7 @@ class EventTrainingController extends Controller
         ]);
     }
 
-    /* ================== CERTIFICATE (INPUT DATA) ================== */
+    /* ================== CERTIFICATE ================== */
     public function recordCertificate(
         Request $request,
         EventTraining $event,
@@ -170,13 +218,13 @@ class EventTrainingController extends Controller
 
         abort_if(! $pivot, 404);
 
-        if ($event->isReguler() && ! $pivot->isPaid()) {
+        if ($event->isTraining() && $event->isReguler() && ! $pivot->isPaid()) {
             abort(403, 'Peserta belum lunas');
         }
 
-        $years = $event->certificateValidityYears();
-        $expired = $years
-            ? Carbon::parse($request->tanggal_terbit)->addYears($years)
+        $expired = $event->certificateValidityYears()
+            ? Carbon::parse($request->tanggal_terbit)
+                ->addYears($event->certificateValidityYears())
             : null;
 
         Certificate::updateOrCreate(
@@ -193,55 +241,6 @@ class EventTrainingController extends Controller
 
         $pivot->markCertificateReady();
 
-        return back()->with('success', 'Sertifikat berhasil dicatat.');
+        return back()->with('success', 'Sertifikat dicatat');
     }
-
-    /* ================== DIVISION TRAINING ================== */
-    public function certificateDashboard()
-    {
-        $events = EventTraining::with([
-            'training',
-            'participants.certificates'
-        ])
-        ->where('status', 'done')
-        ->orderBy('tanggal_end', 'DESC')
-        ->get();
-
-        return view('division.training.index', compact('events'));
-    }
-
-    /* ================== LAPORAN ================== */
-public function laporan()
-{
-    $events = EventTraining::with(['training', 'participants'])
-        ->where('status', 'done')
-        ->orderBy('tanggal_end', 'DESC')
-        ->get()
-        ->map(function ($event) {
-
-            // TOTAL TAGIHAN
-            $totalTagihan = $event->isInhouse()
-                ? $event->harga_paket
-                : $event->participants->sum(
-                    fn ($p) => $p->pivot->harga_peserta
-                );
-
-            // TOTAL LUNAS
-            $totalLunas = $event->participants
-                ->where('pivot.is_paid', true)
-                ->sum(fn ($p) => $p->pivot->harga_peserta);
-
-            return (object) [
-                'event'          => $event,
-                'jenis_event'    => strtoupper($event->jenis_event),
-                'status_event'   => $event->status,
-                'total_peserta'  => $event->participants->count(),
-                'total_tagihan'  => $totalTagihan,
-                'total_lunas'    => $totalLunas,
-                'finance_ok'     => (bool) $event->finance_approved,
-            ];
-        });
-
-    return view('laporan.index', compact('events'));
-}
 }
