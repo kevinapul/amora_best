@@ -1,10 +1,14 @@
+@php
+    $reguler = $reguler ?? collect();
+    $inhouse = $inhouse ?? collect();
+@endphp
+
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
 
     {{-- REGULER --}}
     <div class="bg-white p-5 shadow rounded-lg">
         <h3 class="text-lg font-semibold mb-3 text-blue-700">Training Reguler Bulan Ini</h3>
 
-        <!-- Scroll wrapper -->
         <div class="overflow-y-auto max-h-56">
             <table class="w-full text-sm border-collapse">
                 <thead>
@@ -18,15 +22,14 @@
                 <tbody>
                     @forelse($reguler as $item)
                         <tr>
-                            <td class="border px-3 py-2">{{ $item->training->name }}</td>
+                            <td class="border px-3 py-2">{{ $item->training->name ?? '-' }}</td>
                             <td class="border px-3 py-2 text-center">
-                                {{ \Carbon\Carbon::parse($item->tanggal_start)->format('d') }}
+                                {{ optional($item->tanggal_start)->format('d') ?? '-' }}
                                 –
-                                {{ \Carbon\Carbon::parse($item->tanggal_end)->format('d') }}
+                                {{ optional($item->tanggal_end)->format('d') ?? '-' }}
                             </td>
-
-                            <td class="border px-3 py-2 text-center">{{ $item->participants_count }}</td>
-                            <td class="border px-3 py-2">{{ $item->tempat }}</td>
+                            <td class="border px-3 py-2 text-center">{{ $item->participants_count ?? 0 }}</td>
+                            <td class="border px-3 py-2">{{ $item->tempat ?? '-' }}</td>
                         </tr>
                     @empty
                         <tr>
@@ -44,7 +47,6 @@
     <div class="bg-white p-5 shadow rounded-lg">
         <h3 class="text-lg font-semibold mb-3 text-green-700">Training Inhouse Bulan Ini</h3>
 
-        <!-- Scroll wrapper -->
         <div class="overflow-y-auto max-h-56">
             <table class="w-full text-sm border-collapse">
                 <thead>
@@ -58,14 +60,14 @@
                 <tbody>
                     @forelse($inhouse as $item)
                         <tr>
-                            <td class="border px-3 py-2">{{ $item->training->name }}</td>
+                            <td class="border px-3 py-2">{{ $item->training->name ?? '-' }}</td>
                             <td class="border px-3 py-2 text-center">
-                                {{ \Carbon\Carbon::parse($item->tanggal_start)->format('d') }}
+                                {{ optional($item->tanggal_start)->format('d') ?? '-' }}
                                 –
-                                {{ \Carbon\Carbon::parse($item->tanggal_end)->format('d') }}
+                                {{ optional($item->tanggal_end)->format('d') ?? '-' }}
                             </td>
-                            <td class="border px-3 py-2 text-center">{{ $item->participants_count }}</td>
-                            <td class="border px-3 py-2">{{ $item->tempat }}</td>
+                            <td class="border px-3 py-2 text-center">{{ $item->participants_count ?? 0 }}</td>
+                            <td class="border px-3 py-2">{{ $item->tempat ?? '-' }}</td>
                         </tr>
                     @empty
                         <tr>

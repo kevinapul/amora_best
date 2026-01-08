@@ -7,7 +7,7 @@
 
     <div class="max-w-3xl mx-auto mt-10 bg-white p-8 shadow-lg rounded-xl">
 
-        {{-- ERROR VALIDATION --}}
+        {{-- ERROR --}}
         @if ($errors->any())
             <div class="mb-6 p-4 bg-red-100 border border-red-400 rounded">
                 <ul class="text-red-700 list-disc list-inside">
@@ -23,41 +23,54 @@
 
             {{-- ================= JENIS EVENT ================= --}}
             <div class="mb-4">
-                <label class="font-medium">Jenis Event <span class="text-red-500">*</span></label>
-                <select name="jenis_event" id="jenis_event" class="w-full p-2 border rounded-lg mt-1" required>
-                    <option value="">-- Pilih Jenis Event --</option>
-                    <option value="training" {{ old('jenis_event') === 'training' ? 'selected' : '' }}>Training</option>
-                    <option value="non_training" {{ old('jenis_event') === 'non_training' ? 'selected' : '' }}>Non
-                        Training</option>
+                <label class="font-medium">Jenis Event *</label>
+                <select name="jenis_event" id="jenis_event"
+                        class="w-full p-2 border rounded-lg mt-1" required>
+                    <option value="">-- Pilih --</option>
+                    <option value="training" {{ old('jenis_event') === 'training' ? 'selected' : '' }}>
+                        Training
+                    </option>
+                    <option value="non_training" {{ old('jenis_event') === 'non_training' ? 'selected' : '' }}>
+                        Non Training
+                    </option>
                 </select>
             </div>
 
-            {{-- ================= TRAINING ================= --}}
-            <div id="training_section" style="display:none;">
+            {{-- ================= PILIH TRAINING ================= --}}
+            <div id="training_selector" style="display:none;">
                 <div class="mb-4">
-                    <label class="font-medium">Pilih Training</label>
+                    <label class="font-medium">
+                        Pilih Training
+                        <span id="training_hint" class="text-xs text-gray-500"></span>
+                    </label>
                     <select name="training_id" class="w-full p-2 border rounded-lg mt-1">
                         <option value="">-- Pilih Training --</option>
                         @foreach ($trainings as $t)
-                            <option value="{{ $t->id }}" {{ old('training_id') == $t->id ? 'selected' : '' }}>
+                            <option value="{{ $t->id }}"
+                                {{ old('training_id') == $t->id ? 'selected' : '' }}>
                                 {{ $t->code }}
                             </option>
                         @endforeach
                     </select>
                 </div>
+            </div>
 
+            {{-- ================= DETAIL TRAINING ================= --}}
+            <div id="training_detail" style="display:none;">
                 <div class="mb-4">
                     <label class="font-medium">Tipe Training</label>
-                    <select name="training_type" id="training_type" class="w-full p-2 border rounded-lg mt-1">
-                        <option value="">-- Pilih Tipe --</option>
-                        <option value="reguler" {{ old('training_type') === 'reguler' ? 'selected' : '' }}>Reguler</option>
-                        <option value="inhouse" {{ old('training_type') === 'inhouse' ? 'selected' : '' }}>Inhouse</option>
+                    <select name="training_type" id="training_type"
+                            class="w-full p-2 border rounded-lg mt-1">
+                        <option value="">-- Pilih --</option>
+                        <option value="reguler">Reguler</option>
+                        <option value="inhouse">Inhouse</option>
                     </select>
                 </div>
 
                 <div class="mb-4" id="harga_paket_wrapper" style="display:none;">
                     <label class="font-medium">Harga Paket (Inhouse)</label>
-                    <input type="number" name="harga_paket" value="{{ old('harga_paket') }}" class="w-full border rounded-lg p-2">
+                    <input type="number" name="harga_paket"
+                           class="w-full border rounded-lg p-2">
                 </div>
             </div>
 
@@ -65,104 +78,75 @@
             <div id="non_training_section" style="display:none;">
                 <div class="mb-4">
                     <label class="font-medium">Jenis Layanan</label>
-                    <select name="non_training_type" id="non_training_type" class="w-full p-2 border rounded-lg mt-1">
-                        <option value="">-- Pilih Layanan --</option>
-                        <option value="perpanjangan" {{ old('non_training_type') === 'perpanjangan' ? 'selected' : '' }}>Perpanjangan Sertifikat</option>
-                        <option value="resertifikasi" {{ old('non_training_type') === 'resertifikasi' ? 'selected' : '' }}>Re-Sertifikasi BNSP</option>
+                    <select name="non_training_type" id="non_training_type"
+                            class="w-full p-2 border rounded-lg mt-1">
+                        <option value="">-- Pilih --</option>
+                        <option value="perpanjangan">Perpanjangan Sertifikat</option>
+                        <option value="resertifikasi">Re-Sertifikasi BNSP</option>
                     </select>
                 </div>
             </div>
 
             {{-- ================= FIELD UMUM ================= --}}
             <div id="common_fields">
-                <div class="mb-4">
+
+                <div class="mb-4" id="job_number_field">
                     <label class="font-medium">Job Number</label>
-                    <input type="text" name="job_number" value="{{ old('job_number') }}" class="w-full border rounded-lg p-2">
+                    <input type="text" name="job_number"
+                           class="w-full border rounded-lg p-2">
                 </div>
 
-                {{-- TANGGAL MULAI --}}
                 <div class="mb-4">
                     <label class="font-medium">Tanggal Mulai</label>
-                    <div class="grid grid-cols-3 gap-2 mt-1">
-                        <select name="start_day" class="border rounded-lg p-2" required>
-                            <option value="">Hari</option>
-                            @for ($i = 1; $i <= 31; $i++)
-                                <option value="{{ $i }}" {{ old('start_day') == $i ? 'selected' : '' }}>{{ $i }}</option>
-                            @endfor
-                        </select>
-
-                        <select name="start_month" class="border rounded-lg p-2" required>
-                            <option value="">Bulan</option>
-                            @for ($m = 1; $m <= 12; $m++)
-                                <option value="{{ $m }}" {{ old('start_month') == $m ? 'selected' : '' }}>
-                                    {{ DateTime::createFromFormat('!m', $m)->format('F') }}
-                                </option>
-                            @endfor
-                        </select>
-
-                        <select name="start_year" class="border rounded-lg p-2" required>
-                            <option value="">Tahun</option>
-                            @for ($y = date('Y'); $y <= date('Y') + 3; $y++)
-                                <option value="{{ $y }}" {{ old('start_year') == $y ? 'selected' : '' }}>{{ $y }}</option>
-                            @endfor
-                        </select>
+                    <div class="grid grid-cols-3 gap-2">
+                        <input type="number" name="start_day" placeholder="Hari" class="border p-2 rounded">
+                        <input type="number" name="start_month" placeholder="Bulan" class="border p-2 rounded">
+                        <input type="number" name="start_year" placeholder="Tahun" class="border p-2 rounded">
                     </div>
                 </div>
 
-                {{-- TANGGAL BERAKHIR --}}
-                <div class="mb-4">
+                <div class="mb-4" id="tanggal_berakhir">
                     <label class="font-medium">Tanggal Berakhir</label>
-                    <div class="grid grid-cols-3 gap-2 mt-1">
-                        <select name="end_day" class="border rounded-lg p-2" required>
-                            <option value="">Hari</option>
-                            @for ($i = 1; $i <= 31; $i++)
-                                <option value="{{ $i }}" {{ old('end_day') == $i ? 'selected' : '' }}>{{ $i }}</option>
-                            @endfor
-                        </select>
-
-                        <select name="end_month" class="border rounded-lg p-2" required>
-                            <option value="">Bulan</option>
-                            @for ($m = 1; $m <= 12; $m++)
-                                <option value="{{ $m }}" {{ old('end_month') == $m ? 'selected' : '' }}>
-                                    {{ DateTime::createFromFormat('!m', $m)->format('F') }}
-                                </option>
-                            @endfor
-                        </select>
-
-                        <select name="end_year" class="border rounded-lg p-2" required>
-                            <option value="">Tahun</option>
-                            @for ($y = date('Y'); $y <= date('Y') + 3; $y++)
-                                <option value="{{ $y }}" {{ old('end_year') == $y ? 'selected' : '' }}>{{ $y }}</option>
-                            @endfor
-                        </select>
+                    <div class="grid grid-cols-3 gap-2">
+                        <input type="number" name="end_day" placeholder="Hari" class="border p-2 rounded">
+                        <input type="number" name="end_month" placeholder="Bulan" class="border p-2 rounded">
+                        <input type="number" name="end_year" placeholder="Tahun" class="border p-2 rounded">
                     </div>
                 </div>
 
-                <div class="mb-4">
+                <div class="mb-4" id="tempat_field">
                     <label class="font-medium">Tempat</label>
-                    <input type="text" name="tempat" value="{{ old('tempat') }}" class="w-full border rounded-lg p-2">
+                    <input type="text" name="tempat"
+                           class="w-full border rounded-lg p-2">
                 </div>
 
                 <div class="mb-4">
                     <label class="font-medium">Jenis Sertifikasi</label>
-                    <select name="jenis_sertifikasi" id="jenis_sertifikasi" class="w-full border rounded-lg p-2">
-                        <option value="">-- Pilih Jenis Sertifikasi --</option>
-                        <option value="Kementrian" {{ old('jenis_sertifikasi') === 'Kementrian' ? 'selected' : '' }}>Kementrian</option>
-                        <option value="Bnsp" {{ old('jenis_sertifikasi') === 'Bnsp' ? 'selected' : '' }}>BNSP</option>
-                        <option value="Alkon Best Mandiri" {{ old('jenis_sertifikasi') === 'Alkon Best Mandiri' ? 'selected' : '' }}>Alkon Best Mandiri</option>
+                    <select name="jenis_sertifikasi" id="jenis_sertifikasi"
+                            class="w-full border rounded-lg p-2">
+                        <option value="">-- Pilih --</option>
+                        <option value="Kementrian">Kementrian</option>
+                        <option value="Bnsp">BNSP</option>
+                        <option value="Alkon Best Mandiri">Alkon Best Mandiri</option>
                     </select>
                 </div>
 
-                <div class="mb-4">
+                <div class="mb-4" id="kemitraan_field">
                     <label class="font-medium">Kemitraan</label>
-                    <input type="text" name="sertifikasi" value="{{ old('sertifikasi') }}" class="w-full border rounded-lg p-2">
+                    <input type="text" name="sertifikasi"
+                           class="w-full border rounded-lg p-2">
                 </div>
             </div>
 
-            {{-- ================= BUTTON ================= --}}
             <div class="flex justify-end gap-2 mt-6">
-                <a href="{{ route('event-training.index') }}" class="px-4 py-2 bg-gray-500 text-white rounded-lg">Kembali</a>
-                <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg">Simpan</button>
+                <a href="{{ route('event-training.index') }}"
+                   class="px-4 py-2 bg-gray-500 text-white rounded-lg">
+                    Kembali
+                </a>
+                <button type="submit"
+                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg">
+                    Simpan
+                </button>
             </div>
         </form>
     </div>
@@ -170,68 +154,75 @@
     {{-- ================= SCRIPT ================= --}}
     <script>
         const jenisEvent = document.getElementById('jenis_event');
-        const trainingSection = document.getElementById('training_section');
-        const nonTrainingSection = document.getElementById('non_training_section');
-        const trainingType = document.getElementById('training_type');
-        const hargaWrapper = document.getElementById('harga_paket_wrapper');
         const nonTrainingType = document.getElementById('non_training_type');
-        const commonFields = document.getElementById('common_fields');
+        const trainingType = document.getElementById('training_type');
+
+        const trainingSelector = document.getElementById('training_selector');
+        const trainingDetail = document.getElementById('training_detail');
+        const nonTrainingSection = document.getElementById('non_training_section');
+        const hargaWrapper = document.getElementById('harga_paket_wrapper');
+        const tanggalBerakhir = document.getElementById('tanggal_berakhir');
+        const tempatField = document.getElementById('tempat_field');
+        const jobNumberField = document.getElementById('job_number_field');
+        const kemitraanField = document.getElementById('kemitraan_field');
         const jenisSertifikasi = document.getElementById('jenis_sertifikasi');
-        const kemitraanField = document.querySelector('input[name="sertifikasi"]').closest('.mb-4');
+        const trainingHint = document.getElementById('training_hint');
 
-        function updateFormVisibility() {
-            // reset semua dulu
-            trainingSection.style.display = 'none';
-            nonTrainingSection.style.display = 'none';
-            hargaWrapper.style.display = 'none';
-            commonFields.style.display = 'block'; // default show
+        function toggle(section, show) {
+            section.style.display = show ? 'block' : 'none';
+            section.querySelectorAll('input, select').forEach(el => {
+                el.disabled = !show;
+            });
+        }
 
-            // ambil elemen field
-            const tanggalMulai = document.querySelector('[name="start_day"]').closest('.mb-4');
-            const tanggalBerakhir = document.querySelector('[name="end_day"]').closest('.mb-4');
-            const tempatField = document.querySelector('input[name="tempat"]').closest('.mb-4');
-            const jobNumberField = document.querySelector('input[name="job_number"]').closest('.mb-4');
-            const jenisSertifikasiField = document.querySelector('#jenis_sertifikasi').closest('.mb-4');
+        function resetAll() {
+            toggle(trainingSelector, false);
+            toggle(trainingDetail, false);
+            toggle(nonTrainingSection, false);
+            toggle(hargaWrapper, false);
 
-            // default show semua
-            tanggalMulai.style.display = 'block';
-            tanggalBerakhir.style.display = 'block';
-            tempatField.style.display = 'block';
-            jobNumberField.style.display = 'block';
-            jenisSertifikasiField.style.display = 'block';
-            kemitraanField.style.display = 'block';
+            toggle(tanggalBerakhir, true);
+            toggle(tempatField, true);
+            toggle(jobNumberField, true);
+            toggle(kemitraanField, true);
+
+            trainingHint.innerText = '';
+        }
+
+        function updateForm() {
+            resetAll();
 
             if (jenisEvent.value === 'training') {
-                trainingSection.style.display = 'block';
+                toggle(trainingSelector, true);
+                toggle(trainingDetail, true);
+
                 if (trainingType.value === 'inhouse') {
-                    hargaWrapper.style.display = 'block';
+                    toggle(hargaWrapper, true);
                 }
-            } else if (jenisEvent.value === 'non_training') {
-                nonTrainingSection.style.display = 'block';
+            }
+
+            if (jenisEvent.value === 'non_training') {
+                toggle(nonTrainingSection, true);
 
                 if (nonTrainingType.value === 'perpanjangan') {
-                    // cuma tampil tanggal mulai + jenis sertifikasi
-                    tanggalBerakhir.style.display = 'none';
-                    tempatField.style.display = 'none';
-                    jobNumberField.style.display = 'none';
-                    kemitraanField.style.display = 'none';
+                    toggle(tanggalBerakhir, false);
+                    toggle(tempatField, false);
+                    toggle(jobNumberField, false);
+                    toggle(kemitraanField, false);
                 }
 
                 if (nonTrainingType.value === 'resertifikasi') {
+                    toggle(trainingSelector, true);
                     jenisSertifikasi.value = 'Bnsp';
-                    tanggalBerakhir.style.display = 'block';
-                    tempatField.style.display = 'block';
-                    jobNumberField.style.display = 'block';
-                    kemitraanField.style.display = 'block';
+                    trainingHint.innerText = '(untuk re-sertifikasi)';
                 }
             }
         }
 
-        jenisEvent.addEventListener('change', updateFormVisibility);
-        trainingType?.addEventListener('change', updateFormVisibility);
-        nonTrainingType?.addEventListener('change', updateFormVisibility);
+        jenisEvent.addEventListener('change', updateForm);
+        nonTrainingType.addEventListener('change', updateForm);
+        trainingType?.addEventListener('change', updateForm);
 
-        // initialize
-        updateFormVisibility();
+        updateForm();
     </script>
 </x-app-layout>

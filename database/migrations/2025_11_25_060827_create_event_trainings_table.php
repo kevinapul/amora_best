@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    public function up()
+    public function up(): void
     {
         Schema::create('event_trainings', function (Blueprint $table) {
             $table->id();
@@ -33,15 +33,16 @@ return new class extends Migration
 
             /* ================= RELATION ================= */
 
-            // null untuk non training
+            // null untuk non training / perpanjangan
             $table->foreignId('training_id')
                 ->nullable()
-                ->constrained()
+                ->constrained('trainings')
                 ->nullOnDelete();
 
             /* ================= EVENT INFO ================= */
 
-            $table->integer('harga_paket')->nullable();
+            // harga paket khusus training inhouse
+            $table->decimal('harga_paket', 15, 2)->nullable();
 
             $table->string('job_number')
                 ->nullable()
@@ -54,7 +55,10 @@ return new class extends Migration
 
             /* ================= SERTIFIKASI ================= */
 
+            // contoh: BNSP, Kementrian, Internal
             $table->string('jenis_sertifikasi')->nullable();
+
+            // contoh: mitra / lembaga / kerjasama
             $table->string('sertifikasi')->nullable();
 
             /* ================= FLOW STATUS ================= */
@@ -72,10 +76,14 @@ return new class extends Migration
             $table->timestamp('finance_approved_at')->nullable();
 
             $table->timestamps();
+
+            /* ================= INDEX ================= */
+            $table->index(['jenis_event', 'status']);
+            $table->index('non_training_type');
         });
     }
 
-    public function down()
+    public function down(): void
     {
         Schema::dropIfExists('event_trainings');
     }

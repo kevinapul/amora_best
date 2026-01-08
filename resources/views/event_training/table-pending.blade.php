@@ -2,7 +2,7 @@
     <thead>
         <tr class="border-b">
             <th class="p-2">No</th>
-            <th class="p-2">Training</th>
+            <th class="p-2">Event</th>
             <th class="p-2">Tanggal</th>
             <th class="p-2">Tempat</th>
             <th class="p-2 text-center">Aksi</th>
@@ -15,20 +15,24 @@
                 <td class="p-2 text-center">{{ $i + 1 }}</td>
 
                 <td class="p-2 font-semibold">
-                    {{ $event->training->name }}
+                    @if ($event->jenis_event === 'training')
+                        {{ $event->training?->name ?? '-' }}
+                    @else
+                        {{ strtoupper($event->non_training_type) }}
+                    @endif
                 </td>
 
                 <td class="py-2 px-3">
-    @if ($event->tanggal_start && $event->tanggal_end)
-        {{ $event->tanggal_start->format('d M Y') }}
-        –
-        {{ $event->tanggal_end->format('d M Y') }}
-    @else
-        <span class="italic text-gray-500">Belum ditentukan</span>
-    @endif
-</td>
+                    @if ($event->tanggal_start && $event->tanggal_end)
+                        {{ $event->tanggal_start->format('d M Y') }}
+                        –
+                        {{ $event->tanggal_end->format('d M Y') }}
+                    @else
+                        <span class="italic text-gray-500">Belum ditentukan</span>
+                    @endif
+                </td>
 
-                <td class="p-2">{{ $event->tempat }}</td>
+                <td class="p-2">{{ $event->tempat ?? '-' }}</td>
 
                 <td class="p-2 text-center flex gap-2 justify-center">
 

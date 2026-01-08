@@ -12,42 +12,72 @@ use Carbon\Carbon;
 class EventTrainingController extends Controller
 {
     /* ================== LIST ================== */
-    public function index(Request $request)
-    {
-        $this->authorize('viewAny', EventTraining::class);
+public function index(Request $request)
+{
+    $this->authorize('viewAny', EventTraining::class);
 
-        $search = $request->search;
+    $search = $request->search;
+    $mode   = $request->get('mode', 'training');
 
-        $eventsActive = EventTraining::with('training')
-            ->withCount('participants')
-            ->whereIn('status', ['active', 'on_progress', 'done'])
-            ->when($search, function ($q) use ($search) {
-                $q->where(function ($sub) use ($search) {
-                    $sub->whereHas('training', fn ($t) =>
-                        $t->where('name', 'like', "%{$search}%")
-                    )->orWhere('job_number', 'like', "%{$search}%");
-                });
-            })
-            ->orderByDesc('tanggal_start')
-            ->paginate(10)
-            ->withQueryString();
+    $baseQuery = EventTraining::query();
 
-        foreach ($eventsActive as $event) {
-            $event->refreshStatus();
-        }
+    /* ================= FILTER MODE ================= */
 
-        $eventsPending = EventTraining::with('training')
-            ->withCount('participants')
-            ->where('status', 'pending')
-            ->latest()
-            ->get();
-
-        return view('event_training.index', compact(
-            'eventsActive',
-            'eventsPending',
-            'search'
-        ));
+    if ($mode === 'training') {
+        $baseQuery->where('jenis_event', 'training')
+                  ->with('training')
+                  ->withCount('participants');
     }
+
+    if ($mode === 'resertifikasi') {
+        $baseQuery->where('jenis_event', 'non_training')
+                  ->where('non_training_type', 'resertifikasi')
+                  ->with('training');
+    }
+
+    if ($mode === 'perpanjangan') {
+        $baseQuery->where('jenis_event', 'non_training')
+                  ->where('non_training_type', 'perpanjangan');
+    }
+
+    /* ================= SEARCH ================= */
+
+    $baseQuery->when($search, function ($q) use ($search) {
+        $q->where(function ($sub) use ($search) {
+            $sub->where('job_number', 'like', "%{$search}%")
+                ->orWhereHas('training', fn ($t) =>
+                    $t->where('name', 'like', "%{$search}%")
+                );
+        });
+    });
+
+    /* ================= ACTIVE ================= */
+
+    $eventsActive = (clone $baseQuery)
+        ->whereIn('status', ['active', 'on_progress', 'done'])
+        ->orderByDesc('tanggal_start')
+        ->paginate(10)
+        ->withQueryString();
+
+    foreach ($eventsActive as $event) {
+        $event->refreshStatus();
+    }
+
+    /* ================= PENDING ================= */
+
+    $eventsPending = auth()->user()->can('viewPending', EventTraining::class)
+    ? EventTraining::where('status', 'pending')
+        ->latest()
+        ->get()
+    : null;
+
+    return view('event_training.index', compact(
+        'eventsActive',
+        'eventsPending',
+        'search',
+        'mode'
+    ));
+}
 
     /* ================== CREATE ================== */
     public function create()
@@ -64,76 +94,120 @@ public function store(Request $request)
 {
     $this->authorize('create', EventTraining::class);
 
-    // validasi
+    /* ================= VALIDATION ================= */
+
     $request->validate([
         'jenis_event' => 'required|in:training,non_training',
-        'training_id'   => 'required_if:jenis_event,training|exists:trainings,id',
-        'training_type' => 'required_if:jenis_event,training|in:reguler,inhouse',
-        'harga_paket'   => 'nullable|required_if:training_type,inhouse|numeric',
-        'non_training_type' => 'nullable|required_if:jenis_event,non_training|in:perpanjangan,resertifikasi',
+
+        // TRAINING
+        'training_id' => 'nullable|exists:trainings,id',
+        'training_type' => 'nullable|in:reguler,inhouse',
+        'harga_paket' => 'nullable|numeric|min:0',
+
+        // NON TRAINING
+        'non_training_type' => 'nullable|in:perpanjangan,resertifikasi',
+
+        // UMUM
         'job_number' => 'nullable|string|unique:event_trainings,job_number',
-        'start_day'   => 'required|integer|min:1|max:31',
+        'start_day' => 'required|integer|min:1|max:31',
         'start_month' => 'required|integer|min:1|max:12',
-        'start_year'  => 'required|integer|min:'.date('Y').'|max:'.(date('Y')+3),
-        'end_day'     => 'required|integer|min:1|max:31',
-        'end_month'   => 'required|integer|min:1|max:12',
-        'end_year'    => 'required|integer|min:'.date('Y').'|max:'.(date('Y')+3),
+        'start_year' => 'required|integer|min:' . date('Y'),
+        'end_day' => 'nullable|integer|min:1|max:31',
+        'end_month' => 'nullable|integer|min:1|max:12',
+        'end_year' => 'nullable|integer|min:' . date('Y'),
+
         'tempat' => 'nullable|string',
         'jenis_sertifikasi' => 'nullable|string',
         'sertifikasi' => 'nullable|string',
     ]);
 
-    // gabungkan dropdown jadi tanggal Carbon
-    $tanggal_start = Carbon::create(
+    /* ================= DATE BUILD ================= */
+
+    $tanggalStart = Carbon::create(
         $request->start_year,
         $request->start_month,
         $request->start_day
-    )->startOfDay();
+    );
 
-    $tanggal_end = Carbon::create(
-        $request->end_year,
-        $request->end_month,
-        $request->end_day
-    )->endOfDay();
+    $tanggalEnd = null;
+    if ($request->end_day && $request->end_month && $request->end_year) {
+        $tanggalEnd = Carbon::create(
+            $request->end_year,
+            $request->end_month,
+            $request->end_day
+        );
+    }
+
+    /* ================= BASE DATA ================= */
 
     $data = [
         'jenis_event' => $request->jenis_event,
-        'job_number'  => $request->job_number,
-        'tanggal_start' => $tanggal_start,
-        'tanggal_end'   => $tanggal_end,
+        'job_number' => $request->job_number,
+        'tanggal_start' => $tanggalStart,
+        'tanggal_end' => $tanggalEnd,
         'tempat' => $request->tempat,
+        'jenis_sertifikasi' => $request->jenis_sertifikasi,
+        'sertifikasi' => $request->sertifikasi,
         'status' => 'pending',
     ];
 
-    /* ===== TRAINING ===== */
+    /* ================= TRAINING ================= */
+
     if ($request->jenis_event === 'training') {
+
+        // HARD RULE
+        if (! $request->training_id) {
+            abort(422, 'Training wajib dipilih');
+        }
+
         $data += [
-            'training_id'   => $request->training_id,
+            'training_id' => $request->training_id,
             'training_type' => $request->training_type,
-            'harga_paket'   => $request->training_type === 'inhouse'
-                                ? $request->harga_paket
-                                : null,
+            'harga_paket' => $request->training_type === 'inhouse'
+                ? $request->harga_paket
+                : null,
             'non_training_type' => null,
         ];
     }
 
-    /* ===== NON TRAINING ===== */
+    /* ================= NON TRAINING ================= */
+
     if ($request->jenis_event === 'non_training') {
+
+        if (! $request->non_training_type) {
+            abort(422, 'Jenis non training wajib dipilih');
+        }
+
         $data += [
-            'training_id' => null,
             'training_type' => null,
             'harga_paket' => null,
             'non_training_type' => $request->non_training_type,
         ];
 
+        /* ===== PERPANJANGAN ===== */
         if ($request->non_training_type === 'perpanjangan') {
-            $data['status'] = 'done';
+
+            $data += [
+                'training_id' => null,
+                'status' => 'done', // langsung selesai
+            ];
         }
 
+        /* ===== RESERTIFIKASI ===== */
         if ($request->non_training_type === 'resertifikasi') {
-            $data['jenis_sertifikasi'] = 'Bnsp';
+
+            if (! $request->training_id) {
+                abort(422, 'Resertifikasi wajib memilih training');
+            }
+
+            $data += [
+                'training_id' => $request->training_id,
+                'jenis_sertifikasi' => 'BNSP',
+            ];
         }
     }
+
+    /* ================= SAVE ================= */
 
     EventTraining::create($data);
 
@@ -243,4 +317,66 @@ public function store(Request $request)
 
         return back()->with('success', 'Sertifikat dicatat');
     }
+
+    /* ================== DIVISION TRAINING ================== */
+public function certificateDashboard()
+{
+    $events = EventTraining::with([
+        'training',
+        'participants.certificates'
+    ])
+    ->where('status', 'done')
+    ->orderBy('tanggal_end', 'DESC')
+    ->get();
+
+    return view('division.training.index', compact('events'));
+}
+
+/* ================== LAPORAN ================== */
+public function laporan()
+{
+    $events = EventTraining::with(['training', 'participants'])
+        ->where('status', 'done')
+        ->orderBy('tanggal_end', 'DESC')
+        ->get()
+        ->map(function ($event) {
+
+            // TOTAL TAGIHAN
+            $totalTagihan = $event->isInhouse()
+                ? $event->harga_paket
+                : $event->participants->sum(fn ($p) => $p->pivot->harga_peserta);
+
+            // TOTAL LUNAS
+            $totalLunas = $event->participants
+                ->where('pivot.is_paid', true)
+                ->sum(fn ($p) => $p->pivot->harga_peserta);
+
+            return (object) [
+                'event'         => $event,
+                'jenis_event'   => strtoupper($event->jenis_event),
+                'status_event'  => $event->status,
+                'total_peserta' => $event->participants->count(),
+                'total_tagihan' => $totalTagihan,
+                'total_lunas'   => $totalLunas,
+                'finance_ok'    => (bool) $event->finance_approved,
+            ];
+        });
+
+    return view('laporan.index', compact('events'));
+}
+
+/* ================== DELETE EVENT ================== */
+public function destroy(EventTraining $eventTraining)
+{
+    $this->authorize('delete', $eventTraining);
+
+    // Hapus event beserta relasi sertifikat (opsional)
+    $eventTraining->participants()->detach(); // lepaskan pivot
+    Certificate::where('event_training_id', $eventTraining->id)->delete(); // hapus sertifikat
+    $eventTraining->delete();
+
+    return redirect()
+        ->route('event-training.index')
+        ->with('success', 'Event berhasil dihapus.');
+}
 }
