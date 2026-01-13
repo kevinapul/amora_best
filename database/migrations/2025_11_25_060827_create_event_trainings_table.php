@@ -9,78 +9,66 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('event_trainings', function (Blueprint $table) {
-            $table->id();
+    $table->id();
 
-            /* ================= CORE TYPE ================= */
+    /* ================= GROUPING ================= */
+    $table->foreignId('event_training_group_id')
+          ->nullable()
+          ->constrained('event_training_groups')
+          ->cascadeOnDelete();
 
-            // TRAINING / NON TRAINING
-            $table->enum('jenis_event', [
-                'training',
-                'non_training'
-            ])->default('training');
+    /* ================= CORE TYPE ================= */
+    $table->enum('jenis_event', ['training', 'non_training'])
+          ->default('training');
 
-            // DETAIL TRAINING
-            $table->enum('training_type', [
-                'reguler',
-                'inhouse'
-            ])->nullable();
+    /* ================= TRAINING DETAIL ================= */
+    $table->foreignId('training_id')
+          ->nullable()
+          ->constrained('trainings')
+          ->nullOnDelete();
 
-            // DETAIL NON TRAINING
-            $table->enum('non_training_type', [
-                'perpanjangan',
-                'resertifikasi'
-            ])->nullable();
+    $table->enum('training_type', ['reguler', 'inhouse'])
+          ->nullable();
 
-            /* ================= RELATION ================= */
+    /* ================= NON TRAINING DETAIL ================= */
+    $table->enum('non_training_type', [
+        'perpanjangan',
+        'resertifikasi'
+    ])->nullable();
 
-            // null untuk non training / perpanjangan
-            $table->foreignId('training_id')
-                ->nullable()
-                ->constrained('trainings')
-                ->nullOnDelete();
+    /* ================= EVENT INFO ================= */
+    $table->string('job_number')->nullable()->unique();
 
-            /* ================= EVENT INFO ================= */
+    $table->date('tanggal_start')->nullable();
+    $table->date('tanggal_end')->nullable();
 
-            // harga paket khusus training inhouse
-            $table->decimal('harga_paket', 15, 2)->nullable();
+    $table->string('tempat')->nullable();
 
-            $table->string('job_number')
-                ->nullable()
-                ->unique();
+    /* ================= FINANCIAL ================= */
+    $table->decimal('harga_paket', 15, 2)->nullable();
 
-            $table->date('tanggal_start')->nullable();
-            $table->date('tanggal_end')->nullable();
+    /* ================= CERTIFICATION ================= */
+    $table->string('jenis_sertifikasi')->nullable();
+    $table->string('sertifikasi')->nullable();
 
-            $table->string('tempat')->nullable();
+    /* ================= FLOW ================= */
+    $table->enum('status', [
+        'pending',
+        'active',
+        'on_progress',
+        'done'
+    ])->default('pending');
 
-            /* ================= SERTIFIKASI ================= */
+    /* ================= FINANCE ================= */
+    $table->boolean('finance_approved')->default(false);
+    $table->timestamp('finance_approved_at')->nullable();
 
-            // contoh: BNSP, Kementrian, Internal
-            $table->string('jenis_sertifikasi')->nullable();
+    $table->timestamps();
 
-            // contoh: mitra / lembaga / kerjasama
-            $table->string('sertifikasi')->nullable();
-
-            /* ================= FLOW STATUS ================= */
-
-            $table->enum('status', [
-                'pending',
-                'active',
-                'on_progress',
-                'done'
-            ])->default('pending');
-
-            /* ================= FINANCE ================= */
-
-            $table->boolean('finance_approved')->default(false);
-            $table->timestamp('finance_approved_at')->nullable();
-
-            $table->timestamps();
-
-            /* ================= INDEX ================= */
-            $table->index(['jenis_event', 'status']);
-            $table->index('non_training_type');
-        });
+    /* ================= INDEX ================= */
+    $table->index(['jenis_event', 'status']);
+    $table->index('non_training_type');
+});
     }
 
     public function down(): void

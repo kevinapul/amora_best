@@ -2,10 +2,10 @@
 
 namespace App\Policies;
 
-use App\Models\EventTraining;
+use App\Models\EventParticipant;
 use App\Models\User;
 
-class EventTrainingPolicy
+class EventParticipantPolicy
 {
     public function viewAny(User $user): bool
     {

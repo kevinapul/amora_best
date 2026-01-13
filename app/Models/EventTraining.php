@@ -99,33 +99,58 @@ class EventTraining extends Model
 
     /* ================= STATUS ENGINE ================= */
 
-    public function refreshStatus(): void
+ public function refreshStatus(): void
 {
-    // NON TRAINING → ga punya tanggal
-    if ($this->isNonTraining()) {
+    // 🔒 JANGAN SENTUH EVENT 1 HARI
+    if (
+        $this->tanggal_start &&
+        $this->tanggal_end &&
+        $this->tanggal_start->equalTo($this->tanggal_end)
+    ) {
         return;
     }
 
-    // ⛔ BELUM ADA TANGGAL → JANGAN DIPROSES
+    // 🔒 JANGAN SENTUH PERPANJANGAN
+    if (
+        $this->jenis_event === 'non_training' &&
+        $this->non_training_type === 'perpanjangan'
+    ) {
+        return;
+    }
+
+    // ⛔ kalau belum ada tanggal
     if (! $this->tanggal_start || ! $this->tanggal_end) {
-        return;
-    }
-
-    if ($this->status === 'pending') {
         return;
     }
 
     $today = Carbon::today();
 
-    if ($today->lt($this->tanggal_start)) {
-        $this->status = 'active';
-    } elseif ($today->between($this->tanggal_start, $this->tanggal_end)) {
-        $this->status = 'on_progress';
-    } else {
-        $this->status = 'done';
+    // PENDING → ACTIVE
+    if (
+        $this->status === 'pending' &&
+        $today->gte($this->tanggal_start)
+    ) {
+        $this->updateQuietly(['status' => 'active']);
+        return;
     }
 
-    $this->save();
+    // ACTIVE → ON PROGRESS
+    if (
+        $this->status === 'active' &&
+        $today->between($this->tanggal_start, $this->tanggal_end)
+    ) {
+        $this->updateQuietly(['status' => 'on_progress']);
+        return;
+    }
+
+    // ON PROGRESS → DONE
+    if (
+        in_array($this->status, ['active', 'on_progress']) &&
+        $today->gt($this->tanggal_end)
+    ) {
+        $this->updateQuietly(['status' => 'done']);
+        return;
+    }
 }
 
     /* ================= BUSINESS RULES ================= */

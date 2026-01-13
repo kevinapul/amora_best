@@ -8,25 +8,23 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('trainings', function (Blueprint $table) {
+        Schema::create('event_training_groups', function (Blueprint $table) {
             $table->id();
 
             $table->foreignId('master_training_id')
+                  ->nullable()
                   ->constrained('master_trainings')
-                  ->cascadeOnDelete();
+                  ->nullOnDelete();
 
-            $table->string('code'); // contoh: RF-BASIC
-            $table->string('name'); // contoh: Rigging Forklift Basic
-            $table->text('description')->nullable();
+            $table->string('nama_group')->nullable(); 
+            // contoh: Rigging Forklift Jan 2026
 
             $table->timestamps();
-
-            $table->index('master_training_id');
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('trainings');
+        Schema::dropIfExists('event_training_groups');
     }
 };

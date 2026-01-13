@@ -23,7 +23,17 @@
                     @if ($event->jenis_event === 'training')
                         {{ $event->training?->name ?? '-' }}
                     @else
-                        {{ strtoupper($event->non_training_type) }}
+                        @if ($event->jenis_event === 'training')
+    {{ $event->training?->name ?? '-' }}
+@else
+    @if ($event->non_training_type === 'perpanjangan')
+        Perpanjangan Sertifikat
+    @elseif ($event->non_training_type === 'resertifikasi')
+        Re-Sertifikasi BNSP
+    @else
+        Non Training
+    @endif
+@endif
                     @endif
                 </td>
 
