@@ -6,10 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 
 class MasterTraining extends Model
 {
-    protected $fillable = ['name'];
+    protected $fillable = [
+        'nama_training',
+        'kategori',
+    ];
 
-    public function events()
+    public function trainings()
     {
-        return $this->hasMany(EventTraining::class, 'master_training_id');
+        return $this->hasMany(Training::class);
     }
 }

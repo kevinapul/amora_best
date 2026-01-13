@@ -9,7 +9,8 @@ use App\Http\Controllers\{
     EventStaffController,
     EventTrainingController,
     EventParticipantController,
-    HRController
+    HRController,
+    MasterTrainingController,
 };
 
 /*
