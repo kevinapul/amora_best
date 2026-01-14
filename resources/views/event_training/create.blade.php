@@ -1,11 +1,9 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="text-xl font-semibold text-gray-800">
-            Tambah Event
-        </h2>
+        <h2 class="text-xl font-semibold text-gray-800">Tambah Event</h2>
     </x-slot>
 
-    <div class="max-w-3xl mx-auto mt-10 bg-white p-8 shadow-lg rounded-xl">
+    <div class="max-w-4xl mx-auto mt-10 bg-white p-8 shadow-lg rounded-xl">
 
         {{-- ERROR --}}
         @if ($errors->any())
@@ -21,124 +19,61 @@
         <form action="{{ route('event-training.store') }}" method="POST">
             @csrf
 
-            {{-- ================= JENIS EVENT ================= --}}
-            <div class="mb-4">
-                <label class="font-medium">Jenis Event *</label>
-                <select name="jenis_event" id="jenis_event"
-                        class="w-full p-2 border rounded-lg mt-1" required>
-                    <option value="">-- Pilih --</option>
-                    <option value="training" {{ old('jenis_event') === 'training' ? 'selected' : '' }}>
-                        Training
-                    </option>
-                    <option value="non_training" {{ old('jenis_event') === 'non_training' ? 'selected' : '' }}>
-                        Non Training
-                    </option>
+            {{-- ================= MASTER TRAINING ================= --}}
+            <div class="mb-6">
+                <label class="font-medium">Master Training *</label>
+                <select id="master_training"
+                        name="master_training_id"
+                        class="w-full p-2 border rounded-lg mt-1"
+                        required>
+                    <option value="">-- Pilih Master Training --</option>
+                    @foreach ($masters as $m)
+                        <option value="{{ $m->id }}"
+                                data-trainings='@json($m->trainings)'>
+                            {{ $m->nama_training }}
+                        </option>
+                    @endforeach
                 </select>
             </div>
 
-            {{-- ================= PILIH TRAINING ================= --}}
-            <div id="training_selector" style="display:none;">
-                <div class="mb-4">
-                    <label class="font-medium">
-                        Pilih Training
-                        <span id="training_hint" class="text-xs text-gray-500"></span>
-                    </label>
-                    <select name="training_id" class="w-full p-2 border rounded-lg mt-1">
-                        <option value="">-- Pilih Training --</option>
-                        @foreach ($trainings as $t)
-                            <option value="{{ $t->id }}"
-                                {{ old('training_id') == $t->id ? 'selected' : '' }}>
-                                {{ $t->code }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-            </div>
-
-            {{-- ================= DETAIL TRAINING ================= --}}
-            <div id="training_detail" style="display:none;">
-                <div class="mb-4">
-                    <label class="font-medium">Tipe Training</label>
-                    <select name="training_type" id="training_type"
-                            class="w-full p-2 border rounded-lg mt-1">
-                        <option value="">-- Pilih --</option>
-                        <option value="reguler">Reguler</option>
-                        <option value="inhouse">Inhouse</option>
-                    </select>
-                </div>
-
-                <div class="mb-4" id="harga_paket_wrapper" style="display:none;">
-                    <label class="font-medium">Harga Paket (Inhouse)</label>
-                    <input type="number" name="harga_paket"
-                           class="w-full border rounded-lg p-2">
-                </div>
-            </div>
-
-            {{-- ================= NON TRAINING ================= --}}
-            <div id="non_training_section" style="display:none;">
-                <div class="mb-4">
-                    <label class="font-medium">Jenis Layanan</label>
-                    <select name="non_training_type" id="non_training_type"
-                            class="w-full p-2 border rounded-lg mt-1">
-                        <option value="">-- Pilih --</option>
-                        <option value="perpanjangan">Perpanjangan Sertifikat</option>
-                        <option value="resertifikasi">Re-Sertifikasi BNSP</option>
-                    </select>
-                </div>
-            </div>
-
-            {{-- ================= FIELD UMUM ================= --}}
-            <div id="common_fields">
-
-                <div class="mb-4" id="job_number_field">
+            {{-- ================= GROUP FIELDS ================= --}}
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div>
                     <label class="font-medium">Job Number</label>
                     <input type="text" name="job_number"
                            class="w-full border rounded-lg p-2">
                 </div>
 
-                <div class="mb-4">
-                    <label class="font-medium">Tanggal Mulai</label>
-                    <div class="grid grid-cols-3 gap-2">
-                        <input type="number" name="start_day" placeholder="Hari" class="border p-2 rounded">
-                        <input type="number" name="start_month" placeholder="Bulan" class="border p-2 rounded">
-                        <input type="number" name="start_year" placeholder="Tahun" class="border p-2 rounded">
-                    </div>
-                </div>
-
-                <div class="mb-4" id="tanggal_berakhir">
-                    <label class="font-medium">Tanggal Berakhir</label>
-                    <div class="grid grid-cols-3 gap-2">
-                        <input type="number" name="end_day" placeholder="Hari" class="border p-2 rounded">
-                        <input type="number" name="end_month" placeholder="Bulan" class="border p-2 rounded">
-                        <input type="number" name="end_year" placeholder="Tahun" class="border p-2 rounded">
-                    </div>
-                </div>
-
-                <div class="mb-4" id="tempat_field">
+                <div>
                     <label class="font-medium">Tempat</label>
                     <input type="text" name="tempat"
                            class="w-full border rounded-lg p-2">
                 </div>
 
-                <div class="mb-4">
+                <div>
                     <label class="font-medium">Jenis Sertifikasi</label>
-                    <select name="jenis_sertifikasi" id="jenis_sertifikasi"
+                    <select name="jenis_sertifikasi"
                             class="w-full border rounded-lg p-2">
                         <option value="">-- Pilih --</option>
-                        <option value="Kementrian">Kementrian</option>
-                        <option value="Bnsp">BNSP</option>
-                        <option value="Alkon Best Mandiri">Alkon Best Mandiri</option>
+                        <option value="KEMENTERIAN">Kementerian</option>
+                        <option value="BNSP">BNSP</option>
+                        <option value="INTERNAL">Alkon Best Mandiri</option>
                     </select>
                 </div>
 
-                <div class="mb-4" id="kemitraan_field">
+                <div>
                     <label class="font-medium">Kemitraan</label>
                     <input type="text" name="sertifikasi"
                            class="w-full border rounded-lg p-2">
                 </div>
             </div>
 
-            <div class="flex justify-end gap-2 mt-6">
+            <hr class="my-6">
+
+            {{-- ================= EVENT ANAK ================= --}}
+            <div id="child-events"></div>
+
+            <div class="flex justify-end gap-2 mt-8">
                 <a href="{{ route('event-training.index') }}"
                    class="px-4 py-2 bg-gray-500 text-white rounded-lg">
                     Kembali
@@ -151,78 +86,114 @@
         </form>
     </div>
 
-    {{-- ================= SCRIPT ================= --}}
+    {{-- ================= SCRIPT GENERATE ANAK ================= --}}
     <script>
-        const jenisEvent = document.getElementById('jenis_event');
-        const nonTrainingType = document.getElementById('non_training_type');
-        const trainingType = document.getElementById('training_type');
+        const masterSelect = document.getElementById('master_training');
+        const container = document.getElementById('child-events');
 
-        const trainingSelector = document.getElementById('training_selector');
-        const trainingDetail = document.getElementById('training_detail');
-        const nonTrainingSection = document.getElementById('non_training_section');
-        const hargaWrapper = document.getElementById('harga_paket_wrapper');
-        const tanggalBerakhir = document.getElementById('tanggal_berakhir');
-        const tempatField = document.getElementById('tempat_field');
-        const jobNumberField = document.getElementById('job_number_field');
-        const kemitraanField = document.getElementById('kemitraan_field');
-        const jenisSertifikasi = document.getElementById('jenis_sertifikasi');
-        const trainingHint = document.getElementById('training_hint');
+        const days   = [...Array(31)].map((_, i) => i + 1);
+        const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        const years  = [...Array(5)].map((_, i) => new Date().getFullYear() + i);
 
-        function toggle(section, show) {
-            section.style.display = show ? 'block' : 'none';
-            section.querySelectorAll('input, select').forEach(el => {
-                el.disabled = !show;
+        function options(arr) {
+            return arr.map(v =>
+                `<option value="${typeof v === 'number' ? v : v.toUpperCase()}">${v}</option>`
+            ).join('');
+        }
+
+        masterSelect.addEventListener('change', () => {
+            container.innerHTML = '';
+            if (!masterSelect.value) return;
+
+            const trainings = JSON.parse(
+                masterSelect.selectedOptions[0].dataset.trainings
+            );
+
+            trainings.forEach((t, i) => {
+                container.insertAdjacentHTML('beforeend', `
+                    <div data-event-card class="border rounded-xl p-5 mt-6 bg-gray-50">
+
+                        <h3 class="font-semibold mb-4">
+                            ${i + 1}. ${t.name}
+                        </h3>
+
+                        <input type="hidden"
+                               name="events[${i}][training_id]"
+                               value="${t.id}">
+
+                        {{-- JENIS EVENT --}}
+                        <div class="mb-3">
+                            <label class="font-medium">Jenis Event *</label>
+                            <select name="events[${i}][jenis_event]"
+                                    class="w-full border p-2 rounded"
+                                    required>
+                                <option value="">-- Pilih --</option>
+                                <option value="training">Training</option>
+                                <option value="non_training">Non Training</option>
+                            </select>
+                        </div>
+
+                        {{-- NON TRAINING TYPE --}}
+                        <div class="mb-3 hidden" data-non-training-wrapper>
+                            <label class="font-medium">Jenis Non Training</label>
+                            <select name="events[${i}][non_training_type]"
+                                    class="w-full border p-2 rounded"
+                                    disabled>
+                                <option value="">-- Pilih --</option>
+                                <option value="perpanjangan">Perpanjangan</option>
+                                <option value="resertifikasi">Resertifikasi</option>
+                            </select>
+                        </div>
+
+                        {{-- TANGGAL --}}
+                        <div class="grid grid-cols-2 gap-4 mt-4">
+                            <div>
+                                <label class="font-medium">Tanggal Mulai</label>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <select name="events[${i}][start_day]" class="border p-2 rounded">${options(days)}</select>
+                                    <select name="events[${i}][start_month]" class="border p-2 rounded">${options(months)}</select>
+                                    <select name="events[${i}][start_year]" class="border p-2 rounded">${options(years)}</select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="font-medium">Tanggal Berakhir</label>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <select name="events[${i}][end_day]" class="border p-2 rounded">${options(days)}</select>
+                                    <select name="events[${i}][end_month]" class="border p-2 rounded">${options(months)}</select>
+                                    <select name="events[${i}][end_year]" class="border p-2 rounded">${options(years)}</select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `);
             });
-        }
-
-        function resetAll() {
-            toggle(trainingSelector, false);
-            toggle(trainingDetail, false);
-            toggle(nonTrainingSection, false);
-            toggle(hargaWrapper, false);
-
-            toggle(tanggalBerakhir, true);
-            toggle(tempatField, true);
-            toggle(jobNumberField, true);
-            toggle(kemitraanField, true);
-
-            trainingHint.innerText = '';
-        }
-
-        function updateForm() {
-            resetAll();
-
-            if (jenisEvent.value === 'training') {
-                toggle(trainingSelector, true);
-                toggle(trainingDetail, true);
-
-                if (trainingType.value === 'inhouse') {
-                    toggle(hargaWrapper, true);
-                }
-            }
-
-            if (jenisEvent.value === 'non_training') {
-                toggle(nonTrainingSection, true);
-
-                if (nonTrainingType.value === 'perpanjangan') {
-                    toggle(tanggalBerakhir, false);
-                    toggle(tempatField, false);
-                    toggle(jobNumberField, false);
-                    toggle(kemitraanField, false);
-                }
-
-                if (nonTrainingType.value === 'resertifikasi') {
-                    toggle(trainingSelector, true);
-                    jenisSertifikasi.value = 'Bnsp';
-                    trainingHint.innerText = '(untuk re-sertifikasi)';
-                }
-            }
-        }
-
-        jenisEvent.addEventListener('change', updateForm);
-        nonTrainingType.addEventListener('change', updateForm);
-        trainingType?.addEventListener('change', updateForm);
-
-        updateForm();
+        });
     </script>
+
+    {{-- ================= SCRIPT TOGGLE NON TRAINING (FINAL FIX) ================= --}}
+    <script>
+        document.addEventListener('change', function (e) {
+
+            if (!e.target.name?.includes('[jenis_event]')) return;
+
+            const card = e.target.closest('[data-event-card]');
+            if (!card) return;
+
+            const wrapper = card.querySelector('[data-non-training-wrapper]');
+            const select  = wrapper?.querySelector('select');
+
+            if (!wrapper || !select) return;
+
+            if (e.target.value === 'non_training') {
+                wrapper.classList.remove('hidden');
+                select.disabled = false;
+            } else {
+                wrapper.classList.add('hidden');
+                select.value = '';
+                select.disabled = true;
+            }
+        });
+    </script>
+
 </x-app-layout>

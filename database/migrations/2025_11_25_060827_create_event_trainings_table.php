@@ -9,66 +9,53 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('event_trainings', function (Blueprint $table) {
-    $table->id();
+            $table->id();
 
-    /* ================= GROUPING ================= */
-    $table->foreignId('event_training_group_id')
-          ->nullable()
-          ->constrained('event_training_groups')
-          ->cascadeOnDelete();
+            /* ================= RELASI ================= */
+            $table->foreignId('event_training_group_id')
+                ->constrained()
+                ->cascadeOnDelete();
 
-    /* ================= CORE TYPE ================= */
-    $table->enum('jenis_event', ['training', 'non_training'])
-          ->default('training');
+            $table->foreignId('training_id')
+                ->constrained()
+                ->cascadeOnDelete();
 
-    /* ================= TRAINING DETAIL ================= */
-    $table->foreignId('training_id')
-          ->nullable()
-          ->constrained('trainings')
-          ->nullOnDelete();
+            /* ================= JENIS EVENT ================= */
+            $table->enum('jenis_event', [
+                'training',
+                'non_training'
+            ])->default('training');
 
-    $table->enum('training_type', ['reguler', 'inhouse'])
-          ->nullable();
+            // KHUSUS JIKA non_training
+            $table->enum('non_training_type', [
+                'perpanjangan',
+                'resertifikasi'
+            ])->nullable();
 
-    /* ================= NON TRAINING DETAIL ================= */
-    $table->enum('non_training_type', [
-        'perpanjangan',
-        'resertifikasi'
-    ])->nullable();
+            /* ================= WAKTU ================= */
+            $table->date('tanggal_start');
+            $table->date('tanggal_end')->nullable();
 
-    /* ================= EVENT INFO ================= */
-    $table->string('job_number')->nullable()->unique();
+            /* ================= STATUS FLOW ================= */
+            $table->enum('status', [
+                'pending',
+                'active',
+                'on_progress',
+                'done'
+            ])->default('pending');
 
-    $table->date('tanggal_start')->nullable();
-    $table->date('tanggal_end')->nullable();
+            /* ================= FINANCE ================= */
+            $table->boolean('finance_approved')->default(false);
+            $table->timestamp('finance_approved_at')->nullable();
 
-    $table->string('tempat')->nullable();
+            $table->timestamps();
 
-    /* ================= FINANCIAL ================= */
-    $table->decimal('harga_paket', 15, 2)->nullable();
-
-    /* ================= CERTIFICATION ================= */
-    $table->string('jenis_sertifikasi')->nullable();
-    $table->string('sertifikasi')->nullable();
-
-    /* ================= FLOW ================= */
-    $table->enum('status', [
-        'pending',
-        'active',
-        'on_progress',
-        'done'
-    ])->default('pending');
-
-    /* ================= FINANCE ================= */
-    $table->boolean('finance_approved')->default(false);
-    $table->timestamp('finance_approved_at')->nullable();
-
-    $table->timestamps();
-
-    /* ================= INDEX ================= */
-    $table->index(['jenis_event', 'status']);
-    $table->index('non_training_type');
-});
+            /* ================= CONSTRAINT ================= */
+            $table->unique([
+                'event_training_group_id',
+                'training_id'
+            ]);
+        });
     }
 
     public function down(): void

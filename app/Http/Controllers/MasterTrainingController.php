@@ -11,18 +11,19 @@ class MasterTrainingController extends Controller
 {
     /* ================== LIST ================== */
     public function index()
-    {
-        $masters = MasterTraining::withCount('trainings')
-            ->orderBy('id', 'DESC')
-            ->get();
+{
+    $masters = MasterTraining::withCount('trainings')
+        ->orderByDesc('id')
+        ->paginate(10);
 
-        return view('master_training.index', compact('masters'));
-    }
+    return view('master-training.index', compact('masters'));
+}
+
 
     /* ================== CREATE ================== */
     public function create()
     {
-        return view('master_training.create');
+        return view('master-training.create');
     }
 
     /* ================== STORE ================== */
@@ -72,7 +73,7 @@ class MasterTrainingController extends Controller
     {
         $masterTraining->load('trainings');
 
-        return view('master_training.show', [
+        return view('master-training.show', [
             'master' => $masterTraining
         ]);
     }

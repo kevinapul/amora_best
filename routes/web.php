@@ -3,7 +3,6 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\{
     ProfileController,
-    TrainingController,
     DashboardController,
     AttendanceController,
     EventStaffController,
@@ -11,30 +10,26 @@ use App\Http\Controllers\{
     EventParticipantController,
     HRController,
     MasterTrainingController,
+    EventTrainingGroupController,
 };
 
 /*
 |--------------------------------------------------------------------------
-| Public
-|--------------------------------------------------------------------------
-*/
-
-
-/*
-|--------------------------------------------------------------------------
-| Authenticated
+| Authenticated Routes
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth', 'verified'])->group(function () {
-Route::get('/', fn () => view('dashboard'));    
+
+    Route::get('/', fn () => redirect()->route('dashboard'));
+
     /* =======================
-     * Dashboard
+     * DASHBOARD
      * ======================= */
     Route::get('/dashboard', [DashboardController::class, 'index'])
         ->name('dashboard');
 
     /* =======================
-     * Attendance
+     * ATTENDANCE
      * ======================= */
     Route::post('/attendances', [AttendanceController::class, 'store'])
         ->name('attendances.store');
@@ -43,7 +38,7 @@ Route::get('/', fn () => view('dashboard'));
         ->name('attendances.checkout');
 
     /* =======================
-     * Profile
+     * PROFILE
      * ======================= */
     Route::prefix('profile')->name('profile.')->group(function () {
         Route::get('/', [ProfileController::class, 'edit'])->name('edit');
@@ -51,18 +46,26 @@ Route::get('/', fn () => view('dashboard'));
         Route::delete('/', [ProfileController::class, 'destroy'])->name('destroy');
     });
 
-    /* =======================
-     * Training Master
-     * ======================= */
-    Route::prefix('training')->name('training.')->group(function () {
-        Route::get('/', [TrainingController::class, 'index'])->name('index');
-        Route::get('/create', [TrainingController::class, 'create'])->name('create');
-        Route::post('/', [TrainingController::class, 'store'])->name('store');
+    /* ==========================================================
+     * MASTER TRAINING
+     * URL: /training
+     * VIEW: master-training.index
+     * ========================================================== */
+    Route::prefix('training')->name('master-training.')->group(function () {
+        Route::get('/', [MasterTrainingController::class, 'index'])->name('index');
+        Route::get('/create', [MasterTrainingController::class, 'create'])->name('create');
+        Route::post('/', [MasterTrainingController::class, 'store'])->name('store');
+        Route::get('/{masterTraining}', [MasterTrainingController::class, 'show'])->name('show');
+        Route::post(
+    '/event-training-group/{group}/approve',
+    [EventTrainingGroupController::class, 'approve']
+)->name('event-training-group.approve');
+
     });
 
-    /* =======================
-     * Event Training (CORE)
-     * ======================= */
+    /* ==========================================================
+     * EVENT TRAINING (CORE SYSTEM)
+     * ========================================================== */
     Route::prefix('event-training')->name('event-training.')->group(function () {
 
         Route::get('/', [EventTrainingController::class, 'index'])->name('index');
@@ -81,20 +84,29 @@ Route::get('/', fn () => view('dashboard'));
         Route::delete('/{eventTraining}', [EventTrainingController::class, 'destroy'])
             ->name('destroy');
 
-        /* ===== ACC EVENT (ADMIN) ===== */
+        /* ===== ACC EVENT ===== */
         Route::post('/{eventTraining}/approve', [EventTrainingController::class, 'approve'])
             ->name('approve');
 
-        /* ===== FINANCE ACC (LAPORAN) ===== */
+        /* ===== FINANCE ACC ===== */
         Route::post(
             '/{eventTraining}/approve-finance',
             [EventTrainingController::class, 'approveFinance']
         )->name('approveFinance');
+
+        /* ===== EVENT GROUP ===== */
+        Route::prefix('event-training-group')->name('event-training-group.')->group(function () {
+            Route::get('/{group}/edit', [EventTrainingGroupController::class, 'edit'])
+                ->name('edit');
+
+            Route::put('/{group}', [EventTrainingGroupController::class, 'update'])
+                ->name('update');
+        });
     });
 
-    /* =======================
-     * Event Participant
-     * ======================= */
+    /* ==========================================================
+     * EVENT PARTICIPANT
+     * ========================================================== */
     Route::prefix('event-training/{event}')
         ->name('event-participant.')
         ->group(function () {
@@ -111,34 +123,27 @@ Route::get('/', fn () => view('dashboard'));
             Route::delete('/participant/{participant}', [EventParticipantController::class, 'destroy'])
                 ->name('destroy');
 
-            /* ===== FINANCE PER PESERTA (REGULER) ===== */
             Route::post(
                 '/participant/{participant}/paid',
                 [EventParticipantController::class, 'markPaid']
             )->name('markPaid');
 
-            /* ===== ADMINISTRASI SERTIFIKAT ===== */
             Route::post(
                 '/participant/{participant}/record-certificate',
                 [EventParticipantController::class, 'markCertificateRecorded']
             )->name('recordCertificate');
         });
 
-    /* =======================
-     * Event Staff
-     * ======================= */
+    /* ==========================================================
+     * EVENT STAFF
+     * ========================================================== */
     Route::prefix('event-training/{event}')
         ->name('event-staff.')
         ->group(function () {
 
-            Route::get('/staff', [EventStaffController::class, 'show'])
-                ->name('show');
-
-            Route::get('/staff/create', [EventStaffController::class, 'create'])
-                ->name('create');
-
-            Route::post('/staff', [EventStaffController::class, 'store'])
-                ->name('store');
+            Route::get('/staff', [EventStaffController::class, 'show'])->name('show');
+            Route::get('/staff/create', [EventStaffController::class, 'create'])->name('create');
+            Route::post('/staff', [EventStaffController::class, 'store'])->name('store');
         });
 
     Route::delete('/event-staff/{id}', [EventStaffController::class, 'destroy'])
@@ -147,14 +152,13 @@ Route::get('/', fn () => view('dashboard'));
     Route::get('/event-staff/events', [EventStaffController::class, 'eventIndex'])
         ->name('event-staff.events');
 
-    /* =======================
-     * Division Pages
-     * ======================= */
+    /* ==========================================================
+     * DIVISION
+     * ========================================================== */
     Route::view('/division/tools', 'division.tools')->name('division.tools');
     Route::view('/division/ops', 'division.ops')->name('division.ops');
 
-    Route::get('/division/hr', [HRController::class, 'index'])
-        ->name('division.hr');
+    Route::get('/division/hr', [HRController::class, 'index'])->name('division.hr');
 
     Route::post('/division/hr/force-checkout/{user}', [HRController::class, 'forceCheckout'])
         ->name('hr.forceCheckout');
@@ -162,26 +166,19 @@ Route::get('/', fn () => view('dashboard'));
     Route::get('/division/training', [EventTrainingController::class, 'certificateDashboard'])
         ->name('division.training');
 
-    /* =======================
+    /* ==========================================================
      * LAPORAN
-     * ======================= */
+     * ========================================================== */
     Route::get('/laporan', [EventTrainingController::class, 'laporan'])
         ->name('laporan');
 
-    Route::get('/laporan/event', [EventTrainingController::class, 'laporanEvent'])
-        ->name('laporan.event');
-Route::post(
-    '/event/{event}/sync-finance',
-    [EventTrainingController::class, 'syncFinance']
-)->name('event.sync-finance');
-/* =======================
- * EVENT + PESERTA (OVERVIEW)
- * ======================= */
-Route::get(
-    '/event-training/peserta',
-    [EventParticipantController::class, 'index']
-)->name('event-training.peserta');
-
+    /* ==========================================================
+     * OVERVIEW PESERTA
+     * ========================================================== */
+    Route::get(
+        '/event-training/peserta',
+        [EventParticipantController::class, 'index']
+    )->name('event-training.peserta');
 });
 
 require __DIR__.'/auth.php';

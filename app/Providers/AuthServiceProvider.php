@@ -11,6 +11,7 @@ class AuthServiceProvider extends ServiceProvider
 {
     protected $policies = [
     EventTraining::class => EventTrainingPolicy::class,
+    EventTrainingGroup::class  => EventTrainingGroupPolicy::class,
 ];
 
     public function boot(): void

@@ -49,7 +49,7 @@ if (!$attendanceToday) {
             class="quick-menu grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6
             {{ $hasCheckedIn ? '' : 'opacity-50 pointer-events-none' }}">
 
-            <a href="{{ route('training.index') }}" class="block bg-white p-6 shadow-md sm:rounded-lg hover:bg-gray-100 transition">
+            <a href="{{ route('master-training.index') }}" class="block bg-white p-6 shadow-md sm:rounded-lg hover:bg-gray-100 transition">
                 <h4 class="text-lg font-semibold text-gray-800 mb-2">📚 Master Training</h4>
                 <p class="text-gray-600 text-sm">Kelola data training.</p>
             </a>

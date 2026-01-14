@@ -3,81 +3,61 @@
 namespace App\Http\Controllers;
 
 use App\Models\EventTraining;
+use App\Models\EventTrainingGroup;
+use App\Models\MasterTraining;
 use App\Models\Participant;
 use App\Models\Certificate;
 use App\Models\Training;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class EventTrainingController extends Controller
 {
-    /* ================== LIST ================== */
-public function index(Request $request)
+    /* =====================================================
+     * LIST + SEARCH + MODE + PENDING
+     * ===================================================== */
+   public function index(Request $request)
 {
     $this->authorize('viewAny', EventTraining::class);
 
     $search = $request->search;
-    $mode   = $request->get('mode', 'training');
 
-    $baseQuery = EventTraining::query();
-
-    /* ================= FILTER MODE ================= */
-
-    if ($mode === 'training') {
-        $baseQuery->where('jenis_event', 'training')
-                  ->with('training')
-                  ->withCount('participants');
-    }
-
-    if ($mode === 'resertifikasi') {
-        $baseQuery->where('jenis_event', 'non_training')
-                  ->where('non_training_type', 'resertifikasi')
-                  ->with('training');
-    }
-
-    if ($mode === 'perpanjangan') {
-        $baseQuery->where('jenis_event', 'non_training')
-                  ->where('non_training_type', 'perpanjangan');
-    }
-
-    /* ================= SEARCH ================= */
-
-    $baseQuery->when($search, function ($q) use ($search) {
-        $q->where(function ($sub) use ($search) {
-            $sub->where('job_number', 'like', "%{$search}%")
-                ->orWhereHas('training', fn ($t) =>
-                    $t->where('name', 'like', "%{$search}%")
-                );
-        });
+    $base = EventTrainingGroup::with([
+        'masterTraining',
+        'events'
+    ])->when($search, function ($q) use ($search) {
+        $q->where('job_number', 'like', "%{$search}%")
+          ->orWhereHas('masterTraining', fn ($m) =>
+              $m->where('nama_training', 'like', "%{$search}%")
+          );
     });
 
-    /* ================= ACTIVE ================= */
-
-    $eventsActive = (clone $baseQuery)
-        ->whereIn('status', ['active', 'on_progress', 'done'])
-        ->orderByDesc('tanggal_start')
-        ->paginate(10)
-        ->withQueryString();
-
-    foreach ($eventsActive as $event) {
-        $event->refreshStatus();
-    }
-
-    /* ================= PENDING ================= */
-
-    $eventsPending = auth()->user()->can('viewPending', EventTraining::class)
-    ? EventTraining::where('status', 'pending')
+    // ================= AKTIF =================
+    $groupsActive = (clone $base)
+        ->whereDoesntHave('events', fn ($q) =>
+            $q->where('status', 'pending')
+        )
         ->latest()
-        ->get()
-    : null;
+        ->paginate(10, ['*'], 'active');
+
+    // ================= PENDING =================
+    $groupsPending = auth()->user()->can('approve', EventTraining::class)
+        ? (clone $base)
+            ->whereHas('events', fn ($q) =>
+                $q->where('status', 'pending')
+            )
+            ->latest()
+            ->paginate(10, ['*'], 'pending')
+        : null;
 
     return view('event_training.index', compact(
-        'eventsActive',
-        'eventsPending',
-        'search',
-        'mode'
+        'groupsActive',
+        'groupsPending',
+        'search'
     ));
 }
+
 
     /* ================== CREATE ================== */
     public function create()
@@ -85,138 +65,103 @@ public function index(Request $request)
         $this->authorize('create', EventTraining::class);
 
         return view('event_training.create', [
-            'trainings' => Training::orderBy('code')->get()
+            'masters' => MasterTraining::with('trainings')
+                ->orderBy('nama_training')
+                ->get()
         ]);
     }
 
-    /* ================== STORE ================== */
+
+    /* =====================================================
+     * STORE (GROUP = DATA SAMA)
+     * ===================================================== */
 public function store(Request $request)
 {
     $this->authorize('create', EventTraining::class);
 
-    /* ================= VALIDATION ================= */
     $request->validate([
-        'jenis_event' => 'required|in:training,non_training',
+        // GROUP
+        'master_training_id' => 'required|exists:master_trainings,id',
+        'job_number'         => 'nullable|string|unique:event_training_groups,job_number',
+        'tempat'             => 'nullable|string',
+        'jenis_sertifikasi'  => 'nullable|string',
+        'sertifikasi'        => 'nullable|string',
 
-        // TRAINING
-        'training_id'   => 'nullable|exists:trainings,id',
-        'training_type' => 'nullable|in:reguler,inhouse',
-        'harga_paket'   => 'nullable|numeric|min:0',
+        // EVENTS
+        'events'               => 'required|array|min:1',
+        'events.*.training_id' => 'required|exists:trainings,id',
+        'events.*.jenis_event' => 'required|in:training,non_training',
 
-        // NON TRAINING
-        'non_training_type' => 'nullable|in:perpanjangan,resertifikasi',
+        'events.*.start_day'   => 'required|integer|min:1|max:31',
+        'events.*.start_month' => 'required|string',
+        'events.*.start_year'  => 'required|integer|min:' . date('Y'),
 
-        // UMUM
-        'job_number' => 'nullable|string|unique:event_trainings,job_number',
-
-        // tanggal WAJIB kecuali perpanjangan
-        'start_day'   => 'required_unless:non_training_type,perpanjangan|integer|min:1|max:31',
-        'start_month' => 'required_unless:non_training_type,perpanjangan|integer|min:1|max:12',
-        'start_year'  => 'required_unless:non_training_type,perpanjangan|integer|min:' . date('Y'),
-
-        'end_day'   => 'nullable|integer|min:1|max:31',
-        'end_month' => 'nullable|integer|min:1|max:12',
-        'end_year'  => 'nullable|integer|min:' . date('Y'),
-
-        'tempat'            => 'nullable|string',
-        'jenis_sertifikasi' => 'nullable|string',
-        'sertifikasi'       => 'nullable|string',
+        'events.*.end_day'     => 'nullable|integer|min:1|max:31',
+        'events.*.end_month'   => 'nullable|string',
+        'events.*.end_year'    => 'nullable|integer',
     ]);
 
-    /* ================= BUILD DATE ================= */
-    $tanggalStart = null;
-    $tanggalEnd   = null;
+    DB::transaction(function () use ($request) {
 
-    if ($request->non_training_type === 'perpanjangan') {
-        // 1 hari, start = end
-        $tanggalStart = Carbon::create(
-            $request->start_year,
-            $request->start_month,
-            $request->start_day
-        );
-        $tanggalEnd = $tanggalStart->copy();
-    } else {
-        $tanggalStart = Carbon::create(
-            $request->start_year,
-            $request->start_month,
-            $request->start_day
-        );
+        $master = MasterTraining::findOrFail($request->master_training_id);
 
-        if ($request->end_day && $request->end_month && $request->end_year) {
-            $tanggalEnd = Carbon::create(
-                $request->end_year,
-                $request->end_month,
-                $request->end_day
-            );
-        }
-    }
+        /* ================= GROUP ================= */
+        $group = EventTrainingGroup::create([
+            'master_training_id' => $master->id,
+            'nama_group'         => $master->nama_training,
+            'job_number'         => $request->job_number,
+            'tempat'             => $request->tempat,
+            'jenis_sertifikasi'  => $request->jenis_sertifikasi,
+            'sertifikasi'        => $request->sertifikasi,
+        ]);
 
-    /* ================= BASE DATA ================= */
-    $data = [
-        'jenis_event'        => $request->jenis_event,
-        'job_number'         => $request->job_number,
-        'tanggal_start'      => $tanggalStart,
-        'tanggal_end'        => $tanggalEnd,
-        'tempat'             => $request->tempat,
-        'jenis_sertifikasi'  => $request->jenis_sertifikasi,
-        'sertifikasi'        => $request->sertifikasi,
-        'status'             => 'pending',
-    ];
+        /* ================= EVENTS ================= */
+        foreach ($request->events as $event) {
 
-    /* ================= TRAINING ================= */
-    if ($request->jenis_event === 'training') {
-
-        if (! $request->training_id) {
-            abort(422, 'Training wajib dipilih');
-        }
-
-        $data += [
-            'training_id'       => $request->training_id,
-            'training_type'     => $request->training_type,
-            'harga_paket'       => $request->training_type === 'inhouse'
-                ? $request->harga_paket
-                : null,
-            'non_training_type' => null,
-        ];
-    }
-
-    /* ================= NON TRAINING ================= */
-    if ($request->jenis_event === 'non_training') {
-
-        if (! $request->non_training_type) {
-            abort(422, 'Jenis non training wajib dipilih');
-        }
-
-        $data += [
-            'training_type'     => null,
-            'harga_paket'       => null,
-            'non_training_type' => $request->non_training_type,
-        ];
-
-        // PERPANJANGAN → event administratif
-        if ($request->non_training_type === 'perpanjangan') {
-            $data += [
-                'training_id' => null,
-                'status'      => 'completed', // status admin
-            ];
-        }
-
-        // RESERTIFIKASI → tetap pakai training
-        if ($request->non_training_type === 'resertifikasi') {
-
-            if (! $request->training_id) {
-                abort(422, 'Resertifikasi wajib memilih training');
+            // VALIDASI KHUSUS NON TRAINING
+            if (
+                $event['jenis_event'] === 'non_training' &&
+                empty($event['non_training_type'])
+            ) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'events' => 'Jenis non training wajib dipilih jika event non training.'
+                ]);
             }
 
-            $data += [
-                'training_id'       => $request->training_id,
-                'jenis_sertifikasi' => 'BNSP',
+            $bulan = [
+                'JAN'=>1,'FEB'=>2,'MAR'=>3,'APR'=>4,'MEI'=>5,'JUN'=>6,
+                'JUL'=>7,'AGU'=>8,'SEP'=>9,'OKT'=>10,'NOV'=>11,'DES'=>12
             ];
-        }
-    }
 
-    /* ================= SAVE ================= */
-    EventTraining::create($data);
+            $tanggalStart = Carbon::create(
+                $event['start_year'],
+                $bulan[$event['start_month']],
+                $event['start_day']
+            );
+
+            $tanggalEnd = null;
+            if (!empty($event['end_day'])) {
+                $tanggalEnd = Carbon::create(
+                    $event['end_year'],
+                    $bulan[$event['end_month']],
+                    $event['end_day']
+                );
+            }
+
+            EventTraining::create([
+                'event_training_group_id' => $group->id,
+                'training_id'             => $event['training_id'],
+                'jenis_event'             => $event['jenis_event'],
+                'non_training_type'       =>
+                    $event['jenis_event'] === 'non_training'
+                        ? $event['non_training_type']
+                        : null,
+                'tanggal_start'           => $tanggalStart,
+                'tanggal_end'             => $tanggalEnd,
+                'status'                  => 'pending',
+            ]);
+        }
+    });
 
     return redirect()
         ->route('event-training.index')
@@ -271,121 +216,20 @@ public function store(Request $request)
 
         $eventTraining->load([
             'training',
+            'eventTrainingGroup',
             'participants.certificates',
             'staff'
         ]);
 
-        return view('event_training.show', [
-            'event' => $eventTraining
-        ]);
+        return view('event_training.show', compact('eventTraining'));
     }
-
-    /* ================== CERTIFICATE ================== */
-    public function recordCertificate(
-        Request $request,
-        EventTraining $event,
-        Participant $participant
-    ) {
-        abort_if(! $event->canInputCertificate(), 403);
-
-        $request->validate([
-            'nomor_sertifikat' => 'required|string|max:100',
-            'tanggal_terbit'   => 'required|date',
-        ]);
-
-        $pivot = $event->participants()
-            ->where('participants.id', $participant->id)
-            ->first()
-            ?->pivot;
-
-        abort_if(! $pivot, 404);
-
-        if ($event->isTraining() && $event->isReguler() && ! $pivot->isPaid()) {
-            abort(403, 'Peserta belum lunas');
-        }
-
-        $expired = $event->certificateValidityYears()
-            ? Carbon::parse($request->tanggal_terbit)
-                ->addYears($event->certificateValidityYears())
-            : null;
-
-        Certificate::updateOrCreate(
-            [
-                'event_training_id' => $event->id,
-                'participant_id'    => $participant->id,
-            ],
-            [
-                'nomor_sertifikat' => $request->nomor_sertifikat,
-                'tanggal_terbit'   => $request->tanggal_terbit,
-                'tanggal_expired'  => $expired,
-            ]
-        );
-
-        $pivot->markCertificateReady();
-
-        return back()->with('success', 'Sertifikat dicatat');
-    }
-
-    /* ================== DIVISION TRAINING ================== */
-public function certificateDashboard()
+    public function edit(EventTraining $eventTraining)
 {
-    $events = EventTraining::with([
-        'training',
-        'participants.certificates'
-    ])
-    ->where('status', 'done')
-    ->orderBy('tanggal_end', 'DESC')
-    ->get();
+    $this->authorize('update', $eventTraining);
 
-    return view('division.training.index', compact('events'));
-}
-
-/* ================== LAPORAN ================== */
-public function laporan()
-{
-    $events = EventTraining::with(['training', 'participants'])
-        ->where('status', 'done')
-        ->orderBy('tanggal_end', 'DESC')
-        ->get()
-        ->map(function ($event) {
-
-            // TOTAL TAGIHAN
-            $totalTagihan = $event->isInhouse()
-                ? $event->harga_paket
-                : $event->participants->sum(fn ($p) => $p->pivot->harga_peserta);
-
-            // TOTAL LUNAS
-            $totalLunas = $event->participants
-                ->where('pivot.is_paid', true)
-                ->sum(fn ($p) => $p->pivot->harga_peserta);
-
-            return (object) [
-                'event'         => $event,
-                'jenis_event'   => strtoupper($event->jenis_event),
-                'status_event'  => $event->status,
-                'total_peserta' => $event->participants->count(),
-                'total_tagihan' => $totalTagihan,
-                'total_lunas'   => $totalLunas,
-                'finance_ok'    => (bool) $event->finance_approved,
-            ];
-        });
-
-    return view('laporan.index', compact('events'));
-}
-
-/* ================== DELETE EVENT ================== */
-public function destroy(EventTraining $eventTraining)
-{
-    $this->authorize('delete', $eventTraining);
-
-    // Hapus event beserta relasi sertifikat (opsional)
-    $eventTraining->participants()->detach(); // lepaskan pivot
-    Certificate::where('event_training_id', $eventTraining->id)->delete(); // hapus sertifikat
-    $eventTraining->delete();
-
-    return redirect()
-        ->route('event-training.index')
-        ->with('success', 'Event berhasil dihapus.');
+    return view('event_training.edit', [
+        'event' => $eventTraining,
+    ]);
 }
 
 public function update(Request $request, EventTraining $eventTraining)
@@ -393,123 +237,116 @@ public function update(Request $request, EventTraining $eventTraining)
     $this->authorize('update', $eventTraining);
 
     $request->validate([
-        'jenis_event' => 'required|in:training,non_training',
+        'start_day'   => 'required|integer|min:1|max:31',
+        'start_month' => 'required|integer|min:1|max:12',
+        'start_year'  => 'required|integer',
 
-        'training_id'   => 'nullable|exists:trainings,id',
-        'training_type' => 'nullable|in:reguler,inhouse',
-        'harga_paket'   => 'nullable|numeric|min:0',
-
-        'non_training_type' => 'nullable|in:perpanjangan,resertifikasi',
-
-        'job_number' => 'nullable|string|unique:event_trainings,job_number,' . $eventTraining->id,
-        'start_day'  => 'required|integer|min:1|max:31',
-        'start_month'=> 'required|integer|min:1|max:12',
-        'start_year' => 'required|integer',
-        'end_day'    => 'nullable|integer|min:1|max:31',
-        'end_month'  => 'nullable|integer|min:1|max:12',
-        'end_year'   => 'nullable|integer',
-
-        'tempat'            => 'nullable|string',
-        'jenis_sertifikasi' => 'nullable|string',
-        'sertifikasi'       => 'nullable|string',
+        'end_day'   => 'nullable|integer|min:1|max:31',
+        'end_month' => 'nullable|integer|min:1|max:12',
+        'end_year'  => 'nullable|integer',
     ]);
 
-    $tanggalStart = Carbon::create(
-        $request->start_year,
-        $request->start_month,
-        $request->start_day
-    );
+    $eventTraining->update([
+        'tanggal_start' => now()->setDate(
+            $request->start_year,
+            $request->start_month,
+            $request->start_day
+        ),
+        'tanggal_end' => $request->end_day
+            ? now()->setDate(
+                $request->end_year,
+                $request->end_month,
+                $request->end_day
+            )
+            : null,
+    ]);
 
-    $tanggalEnd = null;
-    if ($request->end_day && $request->end_month && $request->end_year) {
-        $tanggalEnd = Carbon::create(
-            $request->end_year,
-            $request->end_month,
-            $request->end_day
-        );
-    }
-
-    $data = [
-        'jenis_event'       => $request->jenis_event,
-        'job_number'        => $request->job_number,
-        'tanggal_start'     => $tanggalStart,
-        'tanggal_end'       => $tanggalEnd,
-        'tempat'            => $request->tempat,
-        'jenis_sertifikasi' => $request->jenis_sertifikasi,
-        'sertifikasi'       => $request->sertifikasi,
-    ];
-
-    /* ===== TRAINING ===== */
-    if ($request->jenis_event === 'training') {
-        if (! $request->training_id) {
-            abort(422, 'Training wajib dipilih');
-        }
-
-        $data += [
-            'training_id'        => $request->training_id,
-            'training_type'      => $request->training_type,
-            'harga_paket'        => $request->training_type === 'inhouse'
-                ? $request->harga_paket
-                : null,
-            'non_training_type'  => null,
-        ];
-    }
-
-    /* ===== NON TRAINING ===== */
-    if ($request->jenis_event === 'non_training') {
-        if (! $request->non_training_type) {
-            abort(422, 'Jenis non training wajib dipilih');
-        }
-
-        $data += [
-            'training_type' => null,
-            'harga_paket'   => null,
-            'non_training_type' => $request->non_training_type,
-        ];
-
-        if ($request->non_training_type === 'perpanjangan') {
-            $data['training_id'] = null;
-        }
-
-        if ($request->non_training_type === 'resertifikasi') {
-            if (! $request->training_id) {
-                abort(422, 'Resertifikasi wajib memilih training');
-            }
-
-            $data += [
-                'training_id' => $request->training_id,
-                'jenis_sertifikasi' => 'BNSP',
-            ];
-        }
-    }
-
-    $eventTraining->update($data);
-
-    return redirect()
-        ->route('event-training.index')
-        ->with('success', 'Event berhasil diperbarui');
+    return back()->with('success', 'Tanggal event berhasil diperbarui');
 }
-
-public function edit(EventTraining $eventTraining)
+public function laporan()
 {
-    $this->authorize('update', $eventTraining);
+    $groups = EventTrainingGroup::with([
+        'events.training',
+        'events.participants'
+    ])
+    ->latest()
+    ->get()
+    ->map(function ($group) {
 
-    return view('event_training.edit', [
-        'event'     => $eventTraining,
-        'trainings' => Training::orderBy('code')->get(),
+        $participants = $group->events
+            ->flatMap(fn ($e) => $e->participants);
 
-        // pecah tanggal
-        'start' => [
-            'day'   => optional($eventTraining->tanggal_start)->day,
-            'month' => optional($eventTraining->tanggal_start)->month,
-            'year'  => optional($eventTraining->tanggal_start)->year,
-        ],
-        'end' => [
-            'day'   => optional($eventTraining->tanggal_end)->day,
-            'month' => optional($eventTraining->tanggal_end)->month,
-            'year'  => optional($eventTraining->tanggal_end)->year,
-        ],
-    ]);
+        // TAGIHAN
+        $totalTagihan = $group->isInhouse()
+            ? $group->harga_paket
+            : $participants->sum(fn ($p) => $p->pivot->harga_peserta);
+
+        // LUNAS
+        $totalLunas = $participants
+            ->where('pivot.is_paid', true)
+            ->sum(fn ($p) => $p->pivot->harga_peserta);
+
+        return (object) [
+            'group'          => $group,
+            'job_number'     => $group->job_number,
+            'nama_group'     => $group->nama_group,
+            'training_type'  => strtoupper($group->training_type),
+
+            'total_event'    => $group->events->count(),
+            'total_peserta'  => $participants->count(),
+
+            'total_tagihan'  => $totalTagihan,
+            'total_lunas'    => $totalLunas,
+
+            'finance_ok'     => $group->isFinanceApproved(),
+        ];
+    });
+
+    return view('laporan.index', compact('groups'));
+}
+/* =====================================================
+ * D. CERTIFICATE DASHBOARD
+ * ===================================================== */
+public function certificateDashboard()
+{
+    $groups = EventTrainingGroup::with([
+        'masterTraining',
+        'events.training',
+        'events.participants.certificates'
+    ])
+    ->whereHas('events', fn ($q) =>
+        $q->where('status', 'done')
+    )
+    ->orderByDesc('created_at')
+    ->get()
+    ->map(function ($group) {
+
+        $events = $group->events->where('status', 'done');
+
+        $participants = $events
+            ->flatMap(fn ($e) => $e->participants);
+
+        $sertifikatSiap = $participants
+            ->where('pivot.certificate_ready', true)
+            ->count();
+
+        return (object) [
+            'group' => $group,
+
+            'job_number' => $group->job_number,
+            'nama_group' => $group->nama_group,
+            'training_type' => strtoupper($group->training_type),
+
+            'total_event' => $events->count(),
+            'total_peserta' => $participants->count(),
+
+            'sertifikat_siap' => $sertifikatSiap,
+            'sertifikat_pending' =>
+                $participants->count() - $sertifikatSiap,
+        ];
+    });
+
+    return view('division.training.certificate_dashboard', compact('groups'));
 }
 
 }
