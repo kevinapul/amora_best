@@ -56,10 +56,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/create', [MasterTrainingController::class, 'create'])->name('create');
         Route::post('/', [MasterTrainingController::class, 'store'])->name('store');
         Route::get('/{masterTraining}', [MasterTrainingController::class, 'show'])->name('show');
-        Route::post(
-    '/event-training-group/{group}/approve',
-    [EventTrainingGroupController::class, 'approve']
-)->name('event-training-group.approve');
+        Route::post('/event-training-group/{group}/approve',[EventTrainingGroupController::class, 'approve'])->name('event-training-group.approve');
 
     });
 
@@ -68,21 +65,27 @@ Route::middleware(['auth', 'verified'])->group(function () {
      * ========================================================== */
     Route::prefix('event-training')->name('event-training.')->group(function () {
 
-        Route::get('/', [EventTrainingController::class, 'index'])->name('index');
-        Route::get('/create', [EventTrainingController::class, 'create'])->name('create');
-        Route::post('/', [EventTrainingController::class, 'store'])->name('store');
+        // ✅ GROUP DETAIL (HARUS DI ATAS)
+    Route::get(
+        '/group/{group}',
+        [EventTrainingGroupController::class, 'show']
+    )->name('group.show');
 
-        Route::get('/{eventTraining}', [EventTrainingController::class, 'show'])
-            ->name('show');
+    Route::get('/', [EventTrainingController::class, 'index'])->name('index');
+    Route::get('/create', [EventTrainingController::class, 'create'])->name('create');
+    Route::post('/', [EventTrainingController::class, 'store'])->name('store');
+ 
+    // ✅ EVENT DETAIL (HARUS PALING BAWAH)
+    Route::get(
+        '/{eventTraining}',
+        [EventTrainingController::class, 'show']
+    )->name('show');
 
-        Route::get('/{eventTraining}/edit', [EventTrainingController::class, 'edit'])
-            ->name('edit');
+    Route::get('/{eventTraining}/edit', [EventTrainingController::class, 'edit'])->name('edit');
+    Route::put('/{eventTraining}', [EventTrainingController::class, 'update'])->name('update');
+    Route::delete('/{eventTraining}', [EventTrainingController::class, 'destroy'])->name('destroy');
 
-        Route::put('/{eventTraining}', [EventTrainingController::class, 'update'])
-            ->name('update');
-
-        Route::delete('/{eventTraining}', [EventTrainingController::class, 'destroy'])
-            ->name('destroy');
+       
 
         /* ===== ACC EVENT ===== */
         Route::post('/{eventTraining}/approve', [EventTrainingController::class, 'approve'])
@@ -180,5 +183,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         [EventParticipantController::class, 'index']
     )->name('event-training.peserta');
 });
+
 
 require __DIR__.'/auth.php';

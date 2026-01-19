@@ -25,7 +25,7 @@ class EventTrainingGroupController extends Controller
 
     foreach ($group->events as $event) {
         if ($event->status === 'pending') {
-            $event->update(['status' => 'active']);
+            $event->update(['status' => 'on_progress']);
             $event->refreshStatus();
         }
     }
@@ -64,4 +64,16 @@ class EventTrainingGroupController extends Controller
             ->route('event-training.index')
             ->with('success', 'Data grup event berhasil diperbarui');
     }
+// EventTrainingGroupController
+public function show(EventTrainingGroup $group)
+{
+    $group->load([
+        'masterTraining',
+        'events.training',
+        'events.participants'
+    ]);
+
+    return view('event_training_group.show', compact('group'));
+}
+
 }

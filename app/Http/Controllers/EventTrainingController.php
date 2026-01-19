@@ -210,19 +210,23 @@ public function store(Request $request)
     }
 
     /* ================== SHOW ================== */
-    public function show(EventTraining $eventTraining)
-    {
-        $this->authorize('view', $eventTraining);
+public function show(EventTraining $eventTraining)
+{
+    $eventTraining->load([
+        'training',
+        'eventTrainingGroup.masterTraining',
+        'eventTrainingGroup.events',
+        'participants'
+    ]);
 
-        $eventTraining->load([
-            'training',
-            'eventTrainingGroup',
-            'participants.certificates',
-            'staff'
-        ]);
+    return view('event_training.show', [
+        'event' => $eventTraining,
+        'group' => $eventTraining->eventTrainingGroup, // ⬅️ INI KUNCI
+    ]);
+}
 
-        return view('event_training.show', compact('eventTraining'));
-    }
+
+
     public function edit(EventTraining $eventTraining)
 {
     $this->authorize('update', $eventTraining);
@@ -347,6 +351,22 @@ public function certificateDashboard()
     });
 
     return view('division.training.certificate_dashboard', compact('groups'));
+}
+public function modal(EventTraining $eventTraining)
+{
+    $this->authorize('view', $eventTraining);
+
+    $eventTraining->load([
+        'training',
+        'eventTrainingGroup',
+        'participants.certificates',
+        'staff'
+    ]);
+
+    // ⚠️ RETURN PARTIAL, BUKAN show.blade.php
+    return view('event_training._detail', [
+        'event' => $eventTraining
+    ]);
 }
 
 }

@@ -72,12 +72,22 @@ public function updateFinance(User $user, EventTraining $event): bool
     }
 
 
-    public function approve(User $user, EventTraining $eventTraining): bool
-    {
-        return
-            in_array($user->role, ['marketing', 'it']) &&
-            $eventTraining->status === 'pending';
+   public function approve(User $user, ?EventTraining $eventTraining = null): bool
+{
+    // cek role dulu
+    if ($user->role !== 'it') {
+        return false;
     }
+
+    // kalau dipanggil TANPA model (approve global)
+    if ($eventTraining === null) {
+        return true;
+    }
+
+    // kalau dipanggil DENGAN model
+    return $eventTraining->status === 'pending';
+}
+
 
 public function addParticipant(User $user, EventTraining $event): bool
 {
