@@ -40,57 +40,51 @@ class EventParticipantController extends Controller
     }
 
     /* ================== STORE PESERTA ================== */
-    public function store(Request $request, EventTraining $event)
-    {
-        $this->authorize('addParticipant', $event);
+public function store(Request $request, EventTraining $event)
+{
+    $this->authorize('addParticipant', $event);
 
-        $rules = [
-            'nama'          => 'required|string|max:255',
-            'perusahaan'    => 'nullable|string|max:255',
-            'no_hp'         => 'nullable|string|max:20',
-            'alamat'        => 'nullable|string|max:255',
-            'nik'           => 'nullable|string|max:100',
-            'tanggal_lahir' => 'nullable|date',
-            'catatan'       => 'nullable|string',
-        ];
+    $request->validate([
+        'perusahaan' => 'nullable|string|max:255',
 
-        if ($event->jenis_event === 'reguler') {
-            $rules['harga_peserta'] = 'required|integer|min:0';
-        }
+        'participants' => 'required|array|min:1',
 
-        $validated = $request->validate($rules);
+        'participants.*.nama' => 'required|string|max:255',
+        'participants.*.no_hp' => 'nullable|string|max:20',
+        'participants.*.nik'   => 'nullable|string|max:100',
 
-        // Cegah duplikasi NIK
-        if (!empty($validated['nik'])) {
-            $exists = $event->participants()
-                ->where('nik', $validated['nik'])
-                ->exists();
-            if ($exists) {
-                return back()->with('error', 'Peserta dengan NIK ini sudah terdaftar.');
-            }
-        }
+        'participants.*.jenis_layanan' => 'required|in:pelatihan,pelatihan_sertifikasi,sertifikasi_resertifikasi',
+        'participants.*.harga_peserta' => 'required|integer|min:0',
+    ]);
 
-        DB::transaction(function () use ($validated, $event) {
+    DB::transaction(function () use ($request, $event) {
+
+        foreach ($request->participants as $p) {
+
             $participant = Participant::create([
-                'nama'          => $validated['nama'],
-                'perusahaan'    => $validated['perusahaan'] ?? null,
-                'no_hp'         => $validated['no_hp'] ?? null,
-                'alamat'        => $validated['alamat'] ?? null,
-                'nik'           => $validated['nik'] ?? null,
-                'tanggal_lahir' => $validated['tanggal_lahir'] ?? null,
-                'catatan'       => $validated['catatan'] ?? null,
+                'nama'       => $p['nama'],
+                'perusahaan' => $request->perusahaan,
+                'no_hp'      => $p['no_hp'] ?? null,
+                'nik'        => $p['nik'] ?? null,
             ]);
 
             $event->participants()->attach($participant->id, [
-                'harga_peserta' => $event->jenis_event === 'reguler'
-                    ? $validated['harga_peserta']
-                    : 0,
-            ]);
-        });
+    'jenis_layanan'    => $p['jenis_layanan'],
+    'harga_peserta'    => $p['harga_peserta'],
 
-        return redirect()->route('event-training.show', $event)
-            ->with('success', 'Peserta berhasil ditambahkan!');
-    }
+    // 🔥 WAJIB ADA
+    'paid_amount'      => 0,
+    'remaining_amount' => $p['harga_peserta'],
+    'is_paid'          => false,
+]);
+        }
+    });
+
+    return redirect()
+        ->route('event-training.show', $event)
+        ->with('success', 'Peserta berhasil ditambahkan');
+}
+
 
     /* ================== UPDATE PESERTA ================== */
     public function update(Request $request, EventTraining $event, Participant $participant)

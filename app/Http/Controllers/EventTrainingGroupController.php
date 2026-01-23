@@ -19,19 +19,19 @@ class EventTrainingGroupController extends Controller
         ]);
     }
 
-    public function approve(EventTrainingGroup $group)
+public function approve(EventTrainingGroup $group)
 {
     $this->authorize('approve', $group);
 
     foreach ($group->events as $event) {
         if ($event->status === 'pending') {
-            $event->update(['status' => 'on_progress']);
-            $event->refreshStatus();
+            $event->update(['status' => 'active']);
         }
     }
 
-    return back()->with('success', 'Semua event dalam grup berhasil di-ACC');
+    return back()->with('success', 'Semua event dalam grup berhasil di-ACC marketing');
 }
+
 
     /* ================== UPDATE GROUP ================== */
     public function update(Request $request, EventTrainingGroup $group)
@@ -69,8 +69,7 @@ public function show(EventTrainingGroup $group)
 {
     $group->load([
         'masterTraining',
-        'events.training',
-        'events.participants'
+        'events.training'
     ]);
 
     return view('event_training_group.show', compact('group'));

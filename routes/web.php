@@ -135,7 +135,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 '/participant/{participant}/record-certificate',
                 [EventParticipantController::class, 'markCertificateRecorded']
             )->name('recordCertificate');
+            Route::post(
+    '/bulk-payment',
+    [EventTrainingController::class, 'bulkPayment']
+)->name('event-training.bulk-payment');
         });
+        Route::get(
+    '/event-training/{eventTraining}/finance',
+    [EventTrainingController::class, 'finance']
+)->name('event-training.finance');
+Route::post(
+    '/{eventTraining}/bulk-payment',
+    [EventTrainingController::class, 'bulkPayment']
+)->name('event-training.bulk-payment');
+
 
     /* ==========================================================
      * EVENT STAFF

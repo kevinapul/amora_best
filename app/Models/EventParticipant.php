@@ -11,6 +11,7 @@ class EventParticipant extends Pivot
     protected $fillable = [
         'event_training_id',
         'participant_id',
+        'jenis_layanan',
         'harga_peserta',
         'is_paid',
         'paid_at',
@@ -22,9 +23,12 @@ class EventParticipant extends Pivot
 
     public function markAsPaid(): void
     {
-        $this->is_paid = true;
-        $this->paid_at = now();
-        $this->save();
+        if ($this->is_paid) return;
+
+        $this->update([
+            'is_paid' => true,
+            'paid_at' => now(),
+        ]);
     }
 
     public function isPaid(): bool
@@ -34,22 +38,57 @@ class EventParticipant extends Pivot
 
     /* ================= CERTIFICATE ================= */
 
-    public function canGenerateCertificate(): bool
+    public function canHaveCertificate(): bool
     {
-        // reguler: harus sudah bayar
-        return $this->is_paid === true;
+        return in_array($this->jenis_layanan, [
+            'pelatihan_sertifikasi',
+            'sertifikasi_resertifikasi',
+        ]);
     }
 
     public function markCertificateReady(): void
     {
-        $this->certificate_ready = true;
-        $this->certificate_issued_at = now();
-        $this->save();
+        if (! $this->canHaveCertificate()) return;
+
+        $this->update([
+            'certificate_ready' => true,
+            'certificate_issued_at' => now(),
+        ]);
+    }
+    protected static function booted()
+{
+    static::creating(function ($pivot) {
+        if ($pivot->paid_amount === null) {
+            $pivot->paid_amount = 0;
+        }
+
+        if ($pivot->remaining_amount === null) {
+            $pivot->remaining_amount = $pivot->harga_peserta;
+        }
+
+        if ($pivot->is_paid === null) {
+            $pivot->is_paid = false;
+        }
+    });
+}
+public function pay(float $amount): void
+{
+    if ($amount <= 0) return;
+    if ($this->remaining_amount <= 0) return;
+
+    $this->paid_amount += $amount;
+
+    $this->remaining_amount = max(
+        0,
+        $this->harga_peserta - $this->paid_amount
+    );
+
+    if ($this->remaining_amount <= 0) {
+        $this->is_paid = true;
+        $this->paid_at = now();
     }
 
-    public function staff()
-{
-    return $this->hasMany(EventStaff::class, 'event_training_id');
+    $this->save();
 }
 
 }

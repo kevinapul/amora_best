@@ -34,11 +34,21 @@
                     {{ $group->tempat ?? '-' }}
                 </td>
 
-                <td class="p-2 text-center">
-                    <span class="px-2 py-1 rounded text-xs font-semibold bg-green-200 text-green-800">
-                        ACTIVE
-                    </span>
-                </td>
+@php
+    $statusClass = match ($group->status) {
+        'active' => 'bg-green-200 text-green-800',
+        'pending' => 'bg-yellow-200 text-yellow-800',
+        'done' => 'bg-blue-200 text-blue-800',
+        default => 'bg-gray-200 text-gray-800',
+    };
+@endphp
+
+<td class="p-2 text-center">
+    <span class="px-2 py-1 rounded text-xs font-semibold {{ $statusClass }}">
+        {{ strtoupper($group->status) }}
+    </span>
+</td>
+
 
                 <td class="p-2 text-center">
                     <a href="{{ route('event-training.group.show', $group->id) }}"

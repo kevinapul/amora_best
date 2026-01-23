@@ -11,13 +11,9 @@
                 ? \Carbon\Carbon::parse($event->tanggal_start)->translatedFormat('d F Y')
                 : null;
 
-            $end = $event->tanggal_end
-                ? \Carbon\Carbon::parse($event->tanggal_end)->translatedFormat('d F Y')
-                : null;
+            $end = $event->tanggal_end ? \Carbon\Carbon::parse($event->tanggal_end)->translatedFormat('d F Y') : null;
 
-            $tanggal = $start && $end
-                ? ($start === $end ? $start : "$start - $end")
-                : '-';
+            $tanggal = $start && $end ? ($start === $end ? $start : "$start - $end") : '-';
         } catch (\Exception $ex) {
             $tanggal = '-';
         }
@@ -40,7 +36,16 @@
                 <p><strong>Job Number:</strong> {{ $group->job_number ?? '-' }}</p>
                 <p><strong>Tanggal:</strong> {{ $tanggal }}</p>
                 <p><strong>Tempat:</strong> {{ $group->tempat ?? '-' }}</p>
+                <p>
+                    <strong>Instruktur:</strong>
+                    {{ $staffs['Instruktur'] ?? '-' }}
+                </p>
+                <p><strong>Sertifikasi:</strong> {{ $group->sertifikasi ?? '-' }}</p>
 
+                <p>
+                    <strong>Training Officer:</strong>
+                    {{ $staffs['Training Officer'] ?? '-' }}
+                </p>
                 <p>
                     <strong>Jenis Event:</strong>
                     {{ ucfirst($event->jenis_event) }}
@@ -50,31 +55,45 @@
                         ({{ ucfirst($event->non_training_type) }})
                     @endif
                 </p>
-
-                <p><strong>Sertifikasi:</strong> {{ $group->sertifikasi ?? '-' }}</p>
             </div>
 
             <div class="mt-4">
-                <span class="px-3 py-1 rounded text-white text-xs font-semibold
-                    {{ $event->status === 'done'
-                        ? 'bg-green-600'
-                        : ($event->status === 'active'
-                            ? 'bg-blue-600'
-                            : 'bg-gray-500') }}">
+                <span
+                    class="px-3 py-1 rounded text-white text-xs font-semibold
+                    {{ $event->status === 'done' ? 'bg-green-600' : ($event->status === 'active' ? 'bg-blue-600' : 'bg-gray-500') }}">
                     {{ strtoupper($event->status) }}
                 </span>
             </div>
         </div>
 
         {{-- ================= ACTION ================= --}}
-        @can('addParticipant', $event)
-            <div class="mb-4">
+        <div class="flex flex-wrap gap-3 mb-6">
+
+            {{-- MARKETING --}}
+            @can('addParticipant', $event)
                 <a href="{{ route('event-participant.create', $event->id) }}"
-                   class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+                    class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
                     + Tambah Peserta
                 </a>
-            </div>
-        @endcan
+            @endcan
+
+            {{-- OPERATIONAL --}}
+            @can('addInstructor', $event)
+                <a href="{{ route('event-staff.create', $event->id) }}"
+                    class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                    + Tambah Instruktur
+                </a>
+            @endcan
+
+            {{-- FINANCE --}}
+            @can('approveFinance', $event)
+                <a href="{{ route('event-training.finance', $event->id) }}"
+                    class="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700">
+                    Cek & Approve Pembayaran
+                </a>
+            @endcan
+
+        </div>
 
         {{-- ================= DAFTAR PESERTA ================= --}}
         <div class="bg-white shadow-md rounded-lg p-6">
@@ -88,6 +107,7 @@
                             <th class="border px-3 py-2">Nama</th>
                             <th class="border px-3 py-2">Perusahaan</th>
                             <th class="border px-3 py-2">No HP</th>
+                            <th class="border px-3 py-2 text-center">Biaya</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -102,8 +122,11 @@
                                 <td class="border px-3 py-2">
                                     {{ $participant->perusahaan ?? '-' }}
                                 </td>
-                                <td class="border px-3 py-2">
+                                <td class="border px-3 py-2 text-center">
                                     {{ $participant->no_hp ?? '-' }}
+                                </td>
+                                <td class="border px-3 py-2 text-center">
+                                    {{ number_format($participant->pivot->harga_peserta ?? 0, 0, ',', '.') }}
                                 </td>
                             </tr>
                         @endforeach
@@ -117,7 +140,7 @@
         {{-- ================= BACK ================= --}}
         <div class="mt-6">
             <a href="{{ route('event-training.group.show', $group->id) }}"
-               class="inline-block px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                class="inline-block px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
                 ← Kembali ke Group
             </a>
         </div>

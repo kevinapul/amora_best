@@ -10,12 +10,17 @@ class EventStaffController extends Controller
 {
     // Tampilkan list staf untuk 1 event
     public function show($eventId)
-    {
-        $event = EventTraining::with('training')->findOrFail($eventId);
-        $staff = EventStaff::where('event_training_id', $eventId)->get();
+{
+    $event = EventTraining::with(['training', 'participants'])->findOrFail($eventId);
 
-        return view('event_staff.show', compact('event', 'staff'));
-    }
+    $staffs = EventStaff::where('event_training_id', $eventId)
+        ->get()
+        ->groupBy('role')
+        ->map(fn ($items) => $items->pluck('name')->implode(', '));
+
+    return view('event_training.show', compact('event', 'staffs'));
+}
+
 
     public function eventIndex(Request $request)
 {
@@ -44,23 +49,38 @@ class EventStaffController extends Controller
 
     // Store staf
     public function store(Request $request, $eventId)
-    {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'phone' => 'nullable|string|max:30',
-            'role' => 'required|in:Instruktur,Training Officer',
-        ]);
+{
+    $request->validate([
+        'instrukturs' => 'nullable|array|max:2',
+        'instrukturs.*' => 'string|max:255',
 
+        'training_officers' => 'nullable|array|max:2',
+        'training_officers.*' => 'string|max:255',
+    ]);
+
+    // Simpan Instruktur
+    foreach ($request->instrukturs ?? [] as $name) {
         EventStaff::create([
             'event_training_id' => $eventId,
-            'name' => $request->name,
-            'phone' => $request->phone,
-            'role' => $request->role,
+            'name' => $name,
+            'role' => 'Instruktur',
         ]);
-
-        return redirect()->route('event-staff.show', $eventId)
-                         ->with('success', 'Staf berhasil ditambahkan');
     }
+
+    // Simpan Training Officer
+    foreach ($request->training_officers ?? [] as $name) {
+        EventStaff::create([
+            'event_training_id' => $eventId,
+            'name' => $name,
+            'role' => 'Training Officer',
+        ]);
+    }
+
+    return redirect()
+        ->route('event-staff.show', $eventId)
+        ->with('success', 'Staf berhasil ditambahkan');
+}
+
 
     // Hapus staf
     public function destroy($id)

@@ -11,6 +11,7 @@ use App\Models\Training;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use App\Models\EventStaff;
 
 class EventTrainingController extends Controller
 {
@@ -170,44 +171,38 @@ public function store(Request $request)
 
 
     /* ================== APPROVAL ================== */
-    public function approve(EventTraining $eventTraining)
-    {
-        $this->authorize('approve', $eventTraining);
+public function approve(EventTraining $event)
+{
+    $this->authorize('approve', $event);
 
-        abort_if($eventTraining->status !== 'pending', 403);
+    abort_if($event->status !== 'pending', 403);
 
-        $eventTraining->update(['status' => 'active']);
-        $eventTraining->refreshStatus();
+    $event->update([
+        'status' => 'active'
+    ]);
 
-        return back()->with('success', 'Event di-ACC');
-    }
+    return back()->with('success', 'Event berhasil di-ACC marketing');
+}
+
+
 
     /* ================== FINANCE ================== */
-    public function approveFinance(EventTraining $eventTraining)
-    {
-        $this->authorize('approveFinance', $eventTraining);
+public function approveFinance(EventTraining $eventTraining)
+{
+    $this->authorize('approveFinance', $eventTraining);
 
-        abort_if($eventTraining->status !== 'done', 403);
-        abort_if($eventTraining->finance_approved, 403);
+    abort_if(! $eventTraining->isFullyPaid(), 403, 'Belum lunas');
 
-        if ($eventTraining->isInhouse()) {
-            foreach ($eventTraining->participants as $p) {
-                $p->pivot->markAsPaid();
-            }
-        }
+    $eventTraining->update([
+        'finance_approved'    => true,
+        'finance_approved_at' => now(),
+    ]);
 
-        if ($eventTraining->isReguler()) {
-            abort_if(
-                ! $eventTraining->participants->every(fn ($p) => $p->pivot->is_paid),
-                403,
-                'Masih ada peserta belum lunas'
-            );
-        }
+    return back()->with('success', 'Finance berhasil di-ACC');
+}
 
-        $eventTraining->approveFinance();
 
-        return back()->with('success', 'Finance di-ACC');
-    }
+
 
     /* ================== SHOW ================== */
 public function show(EventTraining $eventTraining)
@@ -219,11 +214,18 @@ public function show(EventTraining $eventTraining)
         'participants'
     ]);
 
+    $staffs = EventStaff::where('event_training_id', $eventTraining->id)
+        ->get()
+        ->groupBy('role')
+        ->map(fn ($items) => $items->pluck('name')->implode(', '));
+
     return view('event_training.show', [
-        'event' => $eventTraining,
-        'group' => $eventTraining->eventTrainingGroup, // ⬅️ INI KUNCI
+        'event'  => $eventTraining,
+        'group'  => $eventTraining->eventTrainingGroup,
+        'staffs' => $staffs, // ⬅️ TAMBAHAN KUNCI
     ]);
 }
+
 
 
 
@@ -366,6 +368,73 @@ public function modal(EventTraining $eventTraining)
     // ⚠️ RETURN PARTIAL, BUKAN show.blade.php
     return view('event_training._detail', [
         'event' => $eventTraining
+    ]);
+}
+
+public function bulkPayment(Request $request, EventTraining $eventTraining)
+{
+    $this->authorize('approveFinance', $eventTraining);
+
+    abort_if($eventTraining->status !== 'done', 403);
+    abort_if($eventTraining->finance_approved, 403);
+
+    $validated = $request->validate([
+        'company'       => 'required|string',
+        'amount'        => 'required|numeric|min:1',
+        'participants'  => 'nullable|array',
+    ]);
+
+    DB::transaction(function () use ($eventTraining, $validated) {
+
+        // ================= INDIVIDU =================
+        if ($validated['company'] === 'INDIVIDU') {
+
+            abort_if(
+                empty($validated['participants']),
+                422,
+                'Pilih peserta individu'
+            );
+
+            foreach ($validated['participants'] as $pid) {
+                $pivot = $eventTraining->participants()
+                    ->where('participant_id', $pid)
+                    ->firstOrFail()
+                    ->pivot;
+
+                if ($pivot->remaining_amount > 0) {
+                    $pivot->pay($pivot->remaining_amount);
+                }
+            }
+
+        }
+        // ================= PERUSAHAAN =================
+        else {
+            $eventTraining->bulkPay(
+                $validated['company'],
+                $validated['amount']
+            );
+        }
+    });
+
+    return back()->with('success', 'Pembayaran berhasil diproses');
+}
+
+public function finance(EventTraining $eventTraining)
+{
+    $this->authorize('approveFinance', $eventTraining);
+
+    abort_if($eventTraining->status !== 'done', 403);
+    abort_if($eventTraining->finance_approved, 403);
+
+    $eventTraining->load('participants');
+
+    // group peserta per perusahaan (NULL = individu)
+    $companies = $eventTraining->participants
+        ->groupBy(fn ($p) => $p->perusahaan ?? 'INDIVIDU');
+
+    return view('event_training.finance', [
+        'event'     => $eventTraining,
+        'companies' => $companies,
     ]);
 }
 

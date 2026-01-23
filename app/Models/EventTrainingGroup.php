@@ -32,7 +32,7 @@ class EventTrainingGroup extends Model
         return $this->hasMany(EventTraining::class);
     }
 
-    /* ================= HELPERS ================= */
+    /* ================= TYPE CHECK ================= */
 
     public function isInhouse(): bool
     {
@@ -44,6 +44,8 @@ class EventTrainingGroup extends Model
         return $this->training_type === 'reguler';
     }
 
+    /* ================= SUMMARY HELPERS ================= */
+
     public function totalParticipants(): int
     {
         return $this->events
@@ -53,22 +55,31 @@ class EventTrainingGroup extends Model
 
     public function totalTagihan(): float
     {
+        // INHOUSE → 1x harga paket
         if ($this->isInhouse()) {
-            return (float) $this->harga_paket;
+            return (float) ($this->harga_paket ?? 0);
         }
 
+        // REGULER → akumulasi semua peserta
         return $this->events
             ->flatMap(fn ($e) => $e->participants)
             ->sum(fn ($p) => $p->pivot->harga_peserta);
     }
 
-    public function totalLunas(): float
+public function totalLunas(): float
+{
+    return $this->events
+        ->flatMap(fn ($e) => $e->participants)
+        ->sum(fn ($p) => (float) ($p->pivot->paid_amount ?? 0));
+}
+
+
+    public function sisaTagihan(): float
     {
-        return $this->events
-            ->flatMap(fn ($e) => $e->participants)
-            ->where('pivot.is_paid', true)
-            ->sum(fn ($p) => $p->pivot->harga_peserta);
+        return max(0, $this->totalTagihan() - $this->totalLunas());
     }
+
+    /* ================= FINANCE ================= */
 
     public function isFinanceApproved(): bool
     {
@@ -78,4 +89,23 @@ class EventTrainingGroup extends Model
 
         return $this->events->every(fn ($e) => $e->finance_approved);
     }
+
+    public function financeStatus(): string
+{
+    $total = $this->totalTagihan();
+    $paid  = $this->totalLunas();
+
+    if ($paid <= 0) {
+        return 'BELUM DIBAYAR';
+    }
+
+    if ($paid < $total) {
+        return 'SEBAGIAN DIBAYAR';
+    }
+
+    return 'LUNAS';
+}
+
+
+
 }

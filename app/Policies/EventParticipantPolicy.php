@@ -48,18 +48,4 @@ class EventParticipantPolicy
             in_array($user->role, ['marketing', 'it']) &&
             $event->status === 'pending';
     }
-
-    public function addParticipant(User $user, EventTraining $event): bool
-{
-    // Kalau event DONE → hanya role tertentu
-    if ($event->status === 'done') {
-        return in_array($user->role, ['it']);
-    }
-
-    // Selain DONE
-    return
-        in_array($user->role, ['marketing', 'operational', 'it']) &&
-        in_array($event->status, ['active', 'on_progress']);
-}
-
 }

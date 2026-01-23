@@ -9,10 +9,12 @@
         <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
 
             <div class="bg-white shadow-md sm:rounded-lg p-6">
-                
-                <!-- Info Event -->
-                <div class="mb-4">
-                    <h3 class="text-lg font-semibold">{{ $event->training->name }}</h3>
+
+                {{-- INFO EVENT --}}
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold">
+                        {{ $event->training->name }}
+                    </h3>
                     <p class="text-gray-600 text-sm">
                         {{ $event->tanggal }} — {{ $event->tempat }}
                     </p>
@@ -21,41 +23,86 @@
                 <form action="{{ route('event-staff.store', $event->id) }}" method="POST">
                     @csrf
 
-                    <!-- Nama -->
-                    <div class="mb-4">
-                        <label class="block font-semibold">Nama Staf</label>
-                        <input type="text" name="name"
-                               class="w-full border rounded p-2"
-                               required>
-                    </div>
+                    {{-- ================= INSTRUKTUR ================= --}}
+                    <div class="mb-5">
+                        <label class="block font-semibold mb-1">
+                            Instruktur <span class="text-xs text-gray-500">(maks. 2)</span>
+                        </label>
 
-                    <!-- Nomor HP -->
-                    <div class="mb-4">
-                        <label class="block font-semibold">Nomor HP</label>
-                        <input type="text" name="phone"
-                               class="w-full border rounded p-2">
-                    </div>
-
-                    <!-- Role -->
-                    <div class="mb-4">
-                        <label class="block font-semibold">Peran</label>
-                        <select name="role" class="w-full border rounded p-2" required>
-                            <option value="">-- Pilih Peran --</option>
-                            <option value="Instruktur">Instruktur</option>
-                            <option value="Training Officer">Training Officer</option>
+                        <select name="instrukturs[]" multiple
+                                class="w-full border rounded p-2"
+                                size="3">
+                            @foreach ([
+                                'Windhian Krisanto',
+                                'Abdul Rasid',
+                                'Edy Sulistiono'
+                            ] as $name)
+                                <option value="{{ $name }}">{{ $name }}</option>
+                            @endforeach
                         </select>
+
+                        <p class="text-xs text-gray-500 mt-1">
+                            Tahan <b>Ctrl</b> (Windows) / <b>Cmd</b> (Mac) untuk memilih lebih dari satu
+                        </p>
+
+                        @error('instrukturs')
+                            <p class="text-sm text-red-600 mt-1">{{ $message }}</p>
+                        @enderror
                     </div>
 
-                    <button class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                        Simpan
-                    </button>
+                    {{-- ================= TRAINING OFFICER ================= --}}
+                    <div class="mb-6">
+                        <label class="block font-semibold mb-1">
+                            Training Officer <span class="text-xs text-gray-500">(maks. 2)</span>
+                        </label>
 
-                    <a href="{{ route('event-staff.show', $event->id) }}"
-                       class="ml-2 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
-                        Batal
-                    </a>
+                        <select name="training_officers[]" multiple
+                                class="w-full border rounded p-2"
+                                size="5">
+                            @foreach ([
+                                'Edy Sulistiono',
+                                'Rizky',
+                                'Sahrul Alam',
+                                'Sausan',
+                                'Nyoman'
+                            ] as $name)
+                                <option value="{{ $name }}">{{ $name }}</option>
+                            @endforeach
+                        </select>
+
+                        @error('training_officers')
+                            <p class="text-sm text-red-600 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    {{-- ================= ACTION ================= --}}
+                    <div class="flex gap-2">
+                        <button type="submit"
+                                class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                            Simpan
+                        </button>
+
+                        <a href="{{ route('event-staff.show', $event->id) }}"
+                           class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                            Batal
+                        </a>
+                    </div>
+
                 </form>
             </div>
         </div>
     </div>
+
+    {{-- ================= LIMIT SELECT MAX 2 (FRONTEND GUARD) ================= --}}
+    <script>
+        document.querySelectorAll('select[multiple]').forEach(select => {
+            select.addEventListener('change', function () {
+                if (this.selectedOptions.length > 2) {
+                    alert('Maksimal 2 orang per pilihan');
+                    this.selectedOptions[this.selectedOptions.length - 1].selected = false;
+                }
+            });
+        });
+    </script>
+
 </x-app-layout>

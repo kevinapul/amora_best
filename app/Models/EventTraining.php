@@ -31,7 +31,9 @@ class EventTraining extends Model
         'finance_approved_at' => 'datetime',
     ];
 
-    /* ================= RELATIONS ================= */
+    /* =====================================================
+     * RELATIONS
+     * ===================================================== */
 
     public function training()
     {
@@ -48,8 +50,10 @@ class EventTraining extends Model
         return $this->belongsToMany(Participant::class, 'event_participants')
             ->using(EventParticipant::class)
             ->withPivot([
-                'id',
+                'jenis_layanan',
                 'harga_peserta',
+                'paid_amount',
+                'remaining_amount',
                 'is_paid',
                 'paid_at',
                 'certificate_ready',
@@ -63,12 +67,36 @@ class EventTraining extends Model
         return $this->hasMany(Certificate::class);
     }
 
-    public function staff()
+    public function staffs()
     {
-        return $this->hasMany(EventStaff::class);
+        return $this->hasMany(EventStaff::class, 'event_training_id');
     }
 
-    /* ================= EVENT TYPE ================= */
+    /* =====================================================
+     * STAFF HELPERS (UNTUK VIEW)
+     * ===================================================== */
+
+    public function staffsByRole(): array
+    {
+        return $this->staffs
+            ->groupBy('role')
+            ->map(fn ($items) => $items->pluck('name')->implode(', '))
+            ->toArray();
+    }
+
+    public function instrukturs(): string
+    {
+        return $this->staffsByRole()['Instruktur'] ?? '-';
+    }
+
+    public function trainingOfficers(): string
+    {
+        return $this->staffsByRole()['Training Officer'] ?? '-';
+    }
+
+    /* =====================================================
+     * EVENT TYPE HELPERS
+     * ===================================================== */
 
     public function isTraining(): bool
     {
@@ -90,7 +118,9 @@ class EventTraining extends Model
         return $this->non_training_type === 'resertifikasi';
     }
 
-    /* ================= GROUP SHORTCUT ================= */
+    /* =====================================================
+     * GROUP SHORTCUTS
+     * ===================================================== */
 
     public function isReguler(): bool
     {
@@ -107,75 +137,121 @@ class EventTraining extends Model
         return $this->eventTrainingGroup?->harga_paket;
     }
 
-    /* ================= STATUS ENGINE ================= */
+    /* =====================================================
+     * STATUS ENGINE
+     * ===================================================== */
 
     public function refreshStatus(): void
     {
-        // event 1 hari
-        if (
-            $this->tanggal_start &&
-            $this->tanggal_end &&
-            $this->tanggal_start->equalTo($this->tanggal_end)
-        ) {
-            return;
-        }
+        if ($this->status === 'pending') return;
+        if ($this->isPerpanjangan()) return;
+        if (! $this->tanggal_start || ! $this->tanggal_end) return;
 
-        // perpanjangan
-        if ($this->isPerpanjangan()) {
-            return;
-        }
+        $now = Carbon::now();
 
-        if (! $this->tanggal_start || ! $this->tanggal_end) {
-            return;
-        }
-
-        $today = Carbon::today();
-
-        if ($this->status === 'pending' && $today->gte($this->tanggal_start)) {
+        if ($now->lt($this->tanggal_start)) {
             $this->updateQuietly(['status' => 'active']);
             return;
         }
 
-        if (
-            $this->status === 'active' &&
-            $today->between($this->tanggal_start, $this->tanggal_end)
-        ) {
+        if ($now->between($this->tanggal_start, $this->tanggal_end)) {
             $this->updateQuietly(['status' => 'on_progress']);
             return;
         }
 
-        if (
-            in_array($this->status, ['active', 'on_progress']) &&
-            $today->gt($this->tanggal_end)
-        ) {
+        if ($now->gt($this->tanggal_end)) {
             $this->updateQuietly(['status' => 'done']);
         }
     }
 
-    /* ================= BUSINESS RULES ================= */
+    /* =====================================================
+     * FINANCE HELPERS (INI INTI BULK PAYMENT)
+     * ===================================================== */
+
+    /** daftar perusahaan (NULL = individu) */
+    public function companies()
+    {
+        return $this->participants
+            ->pluck('perusahaan')
+            ->filter()
+            ->unique()
+            ->values();
+    }
+
+    /** summary keuangan per perusahaan / individu */
+    public function financeSummary(?string $company = null): array
+    {
+        $participants = $this->participants
+            ->when($company, fn ($c) => $c->where('perusahaan', $company))
+            ->when($company === null, fn ($c) => $c->whereNull('perusahaan'));
+
+        return [
+            'total'  => $participants->sum(fn ($p) => $p->pivot->harga_peserta),
+            'paid'   => $participants->sum(fn ($p) => $p->pivot->paid_amount),
+            'remain' => $participants->sum(fn ($p) => $p->pivot->remaining_amount),
+        ];
+    }
+
+    /** cek semua peserta lunas */
+    public function isFullyPaid(): bool
+{
+    return $this->participants->every(function ($p) {
+        return ($p->pivot->remaining_amount ?? $p->pivot->harga_peserta) <= 0;
+    });
+}
+
+
+    /** bulk bayar per perusahaan / individu */
+    public function bulkPay(?string $company, float $amount): void
+    {
+        $participants = $this->participants
+            ->when($company, fn ($c) => $c->where('perusahaan', $company))
+            ->when($company === null, fn ($c) => $c->whereNull('perusahaan'));
+
+        $remaining = $amount;
+
+        foreach ($participants as $p) {
+            if ($remaining <= 0) break;
+
+            $pivot = $p->pivot;
+
+            if ($pivot->remaining_amount <= 0) continue;
+
+            $pay = min($remaining, $pivot->remaining_amount);
+            $pivot->pay($pay);
+
+            $remaining -= $pay;
+        }
+    }
+
+    /* =====================================================
+     * BUSINESS RULES
+     * ===================================================== */
 
     public function needFinanceApproval(): bool
     {
         return $this->isTraining() && $this->isInhouse();
     }
 
-    public function canInputCertificate(): bool
+    public function approveFinance(): void
     {
-        if ($this->isPerpanjangan()) {
-            return true;
+        if (! $this->isFullyPaid()) {
+            throw new \Exception('Masih ada peserta belum lunas');
         }
 
-        if ($this->isResertifikasi()) {
-            return $this->status === 'done';
-        }
+        $this->update([
+            'finance_approved'    => true,
+            'finance_approved_at' => now(),
+        ]);
+    }
+
+    public function canInputCertificate(): bool
+    {
+        if ($this->isPerpanjangan()) return true;
+        if ($this->isResertifikasi()) return $this->status === 'done';
 
         return $this->status === 'done'
             && $this->eventTrainingGroup?->finance_approved;
-    }
-
-    public function approveFinance(): void
-    {
-        $this->eventTrainingGroup?->approveFinance();
     }
 
     public function certificateValidityYears(): ?int
@@ -186,4 +262,47 @@ class EventTraining extends Model
             default                 => null,
         };
     }
+    /* =====================================================
+ * FINANCE TOTAL HELPERS (UNTUK VIEW)
+ * ===================================================== */
+
+public function totalTagihan(): float
+{
+    // INHOUSE → 1x harga paket
+    if ($this->isInhouse()) {
+        return (float) ($this->eventTrainingGroup?->harga_paket ?? 0);
+    }
+
+    // REGULER → total semua peserta
+    return $this->participants
+        ->sum(fn ($p) => $p->pivot->harga_peserta);
+}
+
+public function totalPaid(): float
+{
+    return $this->participants
+        ->sum(fn ($p) => $p->pivot->paid_amount ?? 0);
+}
+
+public function totalRemaining(): float
+{
+    return max(0, $this->totalTagihan() - $this->totalPaid());
+}
+
+public function financeBadge(): array
+{
+    $total = $this->totalTagihan();
+    $paid  = $this->totalPaid();
+
+    if ($paid <= 0) {
+        return ['label' => 'BELUM BAYAR', 'color' => 'red'];
+    }
+
+    if ($paid < $total) {
+        return ['label' => 'CICILAN', 'color' => 'yellow'];
+    }
+
+    return ['label' => 'LUNAS', 'color' => 'green'];
+}
+
 }
