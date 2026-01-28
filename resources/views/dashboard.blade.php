@@ -1,5 +1,5 @@
 <x-app-layout>
-    <div style="transform: scale(1.10); transform-origin: top left; width: 91%;">
+    <div style="transform: scale(1.05); transform-origin: top left; width: 95%;" class="alkon-root">
 
         @php
             $attendanceToday = \App\Models\Attendance::where('user_id', Auth::id())->latest()->first();
@@ -32,124 +32,97 @@
             }
         @endphp
 
-        <div class="py-12">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+        <div class="py-10">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
-                <!-- Welcome Box -->
-                <div class="bg-white shadow-md sm:rounded-lg p-6 mb-4 flex justify-between items-center">
+                <!-- ================= STATUS BAR ================= -->
+                <div class="alkon-status mb-10">
                     <div>
-                        <h3 class="text-lg font-semibold text-gray-900 mb-2">
-                            Selamat datang, {{ Auth::user()->name }} 👋
-                        </h3>
-                        <p class="text-gray-600">Kamu berhasil login. Silakan pilih menu di bawah untuk mulai bekerja.
+                        <h2 class="alkon-welcome">
+                            Selamat datang, {{ Auth::user()->name }}
+                        </h2>
+                        <p class="alkon-muted">
+                            Silakan mulai aktivitas kerjamu hari ini.
                         </p>
                     </div>
 
-                    <div>
-                        <button id="absenButton" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-                            {{ $hasCheckedIn ? 'Sudah Absen: --:--:--' : 'Absen' }}
+                    <button id="absenButton" class="alkon-absen-btn">
+                        {{ $hasCheckedIn ? 'Sudah Absen: --:--:--' : 'Mulai Absen' }}
+                    </button>
+                </div>
+
+                <!-- ================= PERFORMANCE ================= -->
+                <div class="flex flex-col gap-6 mb-12">
+
+                    <!-- TARGET -->
+                    <div x-data="{ open: false }" class="alkon-panel">
+                        <button @click="open = !open"
+                            class="alkon-panel-header">
+                            <div>
+                                <h3>🎯 Target Tahunan</h3>
+                                <span class="alkon-status-text {{ $statusColor }}">
+                                    {{ $statusText }}
+                                </span>
+                            </div>
+
+                            <svg :class="{ 'rotate-180': open }"
+                                class="w-5 h-5 transition-transform"
+                                fill="none" stroke="currentColor" stroke-width="2"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                            </svg>
                         </button>
-                    </div>
-                </div>
-                <div x-data="{ open: false }" class="bg-white shadow-md rounded-lg mb-6">
 
-                    {{-- HEADER --}}
-                    <button @click="open = !open" class="w-full flex items-center justify-between px-6 py-4 text-left">
-                        <div class="flex items-center gap-2">
-                            <span class="text-lg font-semibold text-gray-800">
-                                🎯 Target Tahunan
-                            </span>
-
-                            {{-- STATUS ICON --}}
-                            <span class="text-sm font-semibold {{ $statusColor }}">
-                                @if ($totalRealisasi >= $targetAtas)
-                                    🏆 Target Atas Tercapai
-                                @elseif ($totalRealisasi >= $targetTengah)
-                                    🎯 Target Tengah Tercapai
-                                @elseif ($totalRealisasi >= $targetBawah)
-                                    ✔ Target Bawah Tercapai
-                                @else
-                                    ⏳ Belum Tercapai
-                                @endif
-                            </span>
-
+                        <div x-show="open" x-transition class="alkon-panel-body">
+                            @include('dashboard.targets')
                         </div>
+                    </div>
 
-                        {{-- CHEVRON --}}
-                        <svg :class="{ 'rotate-180': open }" class="w-5 h-5 text-gray-500 transition-transform"
-                            fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </button>
+                    <!-- TRAINING -->
+                    <div x-data="{ open: false }" class="alkon-panel">
+                        <button @click="open = !open"
+                            class="alkon-panel-header">
+                            <h3>📋 Training Bulan Ini</h3>
 
-                    {{-- CONTENT --}}
-                    <div x-show="open" x-transition class="border-t px-6 py-4">
-                        @include('dashboard.targets')
+                            <svg :class="{ 'rotate-180': open }"
+                                class="w-5 h-5 transition-transform"
+                                fill="none" stroke="currentColor" stroke-width="2"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+
+                        <div x-show="open" x-transition class="alkon-panel-body">
+                            @include('dashboard.tables')
+                        </div>
                     </div>
 
                 </div>
 
-                <div x-data="{ open: false }" class="bg-white shadow-md rounded-lg">
-
-                    {{-- HEADER --}}
-                    <button @click="open = !open" class="w-full flex items-center justify-between px-6 py-4 text-left">
-                        <span class="text-lg font-semibold text-gray-800">
-                            📋 Training Bulan Ini
-                        </span>
-
-                        <svg :class="{ 'rotate-180': open }" class="w-5 h-5 text-gray-500 transition-transform"
-                            fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </button>
-
-                    {{-- CONTENT --}}
-                    <div x-show="open" x-transition class="border-t px-6 py-4">
-                        @include('dashboard.tables')
-                    </div>
-
-                </div>
-
-
-                <!-- SPACER — JANGAN DIHAPUS -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10"></div>
-
+                <!-- ================= QUICK MENU ================= -->
                 <div
-                    class="quick-menu grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6
-            {{ $hasCheckedIn ? '' : 'opacity-50 pointer-events-none' }}">
+                    class="quick-menu grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5
+                    {{ $hasCheckedIn ? '' : 'opacity-50 pointer-events-none' }}">
 
-                    <a href="{{ route('master-training.index') }}"
-                        class="block bg-white p-6 shadow-md sm:rounded-lg hover:bg-gray-100 transition">
-                        <h4 class="text-lg font-semibold text-gray-800 mb-2">📚 Master Training</h4>
-                        <p class="text-gray-600 text-sm">Kelola data training.</p>
+                    <a href="{{ route('master-training.index') }}" class="alkon-tool">
+                        <h4>📚 Master Training</h4>
+                        <p>Kelola data training.</p>
                     </a>
 
-                    <a href="{{ route('event-training.index') }}"
-                        class="block bg-white p-6 shadow-md sm:rounded-lg hover:bg-gray-100 transition">
-                        <h4 class="text-lg font-semibold text-gray-800 mb-2">📅 Event Training</h4>
-                        <p class="text-gray-600 text-sm">Input jadwal training baru.</p>
+                    <a href="{{ route('event-training.index') }}" class="alkon-tool">
+                        <h4>📅 Event Training</h4>
+                        <p>Input jadwal training baru.</p>
                     </a>
 
-                    <a href="{{ route('event-staff.events') }}"
-                        class="block bg-white p-6 shadow-md sm:rounded-lg hover:bg-gray-100 transition">
-                        <h4 class="text-lg font-semibold text-gray-800 mb-2">👨‍🏫 Instruktur & Training Officer</h4>
-                        <p class="text-gray-600 text-sm">Kelola instruktur.</p>
-                    </a>
-
-                    <a href="{{ route('division.tools') }}"
-                        class="block bg-white p-6 shadow-md sm:rounded-lg hover:bg-gray-100 transition">
-                        <h4 class="text-lg font-semibold text-gray-800 mb-2">🏢 Tools Divisi</h4>
-                        <p class="text-gray-600 text-sm">Menu khusus setiap divisi.</p>
-                    </a>
-
-                    <a href="{{ route('laporan') }}"
-                        class="block bg-white p-6 shadow-md sm:rounded-lg hover:bg-gray-100 transition">
-                        <h4 class="text-lg font-semibold text-gray-800 mb-2">📊 Laporan</h4>
-                        <p class="text-gray-600 text-sm">Data laporan bulanan.</p>
+                    <a href="{{ route('division.tools') }}" class="alkon-tool">
+                        <h4>🏢 Tools Divisi</h4>
+                        <p>Menu khusus setiap divisi.</p>
                     </a>
                 </div>
+
             </div>
-        </div> <!-- TUTUP div transform scale -->
+        </div>
+
 
         <!-- Modal Check-in -->
         <div id="absenModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
@@ -290,22 +263,119 @@
             });
         </script>
 
-        <style>
-            .animate-scale {
-                animation: scaleIn .15s ease-out;
-            }
+<style>
+    :root {
+        --alkon-green: #0f3d2e;
+        --alkon-bg: #f5f7f6;
+        --alkon-border: #e5e7eb;
+        --alkon-text: #111827;
+        --alkon-muted: #6b7280;
+    }
 
-            @keyframes scaleIn {
-                from {
-                    transform: scale(.9);
-                    opacity: 0;
-                }
+    .alkon-root {
+        background: var(--alkon-bg);
+        min-height: 100vh;
+    }
 
-                to {
-                    transform: scale(1);
-                    opacity: 1;
-                }
-            }
-        </style>
+    /* STATUS BAR */
+    .alkon-status {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        background: linear-gradient(180deg, #0f3d2e, #0b2f24);
+        padding: 28px 32px;
+        border-radius: 18px;
+        color: white;
+    }
+
+    .alkon-welcome {
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+
+    .alkon-muted {
+        font-size: .9rem;
+        color: #d1d5db;
+    }
+
+    .alkon-absen-btn {
+        background: white;
+        color: var(--alkon-green);
+        padding: .6rem 1.4rem;
+        border-radius: 999px;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    /* PANELS */
+    .alkon-panel {
+        background: white;
+        border: 1px solid var(--alkon-border);
+        border-radius: 16px;
+    }
+
+    .alkon-panel-header {
+        padding: 20px 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .alkon-panel-header h3 {
+        font-weight: 600;
+        color: var(--alkon-text);
+    }
+
+    .alkon-status-text {
+        font-size: .85rem;
+        margin-top: 2px;
+        display: block;
+    }
+
+    .alkon-panel-body {
+        border-top: 1px solid var(--alkon-border);
+        padding: 20px 24px;
+        background: #fafafa;
+    }
+
+    /* TOOLS */
+    .alkon-tool {
+        background: white;
+        border: 1px solid var(--alkon-border);
+        border-radius: 14px;
+        padding: 22px;
+        transition: .2s;
+    }
+
+    .alkon-tool h4 {
+        font-weight: 600;
+        margin-bottom: 4px;
+        color: var(--alkon-text);
+    }
+
+    .alkon-tool p {
+        font-size: .9rem;
+        color: var(--alkon-muted);
+    }
+
+    .alkon-tool:hover {
+        border-color: var(--alkon-green);
+        transform: translateY(-2px);
+    }
+
+    @media (max-width: 640px) {
+        .alkon-status {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .alkon-absen-btn {
+            width: 100%;
+            text-align: center;
+        }
+    }
+</style>
+
 
 </x-app-layout>

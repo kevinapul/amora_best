@@ -1,71 +1,71 @@
 <table class="w-full border-collapse bg-white">
     <thead>
-        <tr class="border-b">
-            <th class="p-2">No</th>
-            <th class="p-2">Master Training</th>
-            <th class="p-2">Job</th>
-            <th class="p-2 text-center">Event</th>
-            <th class="p-2">Tempat</th>
-            <th class="p-2 text-center">Status</th>
-            <th class="p-2 text-center">Aksi</th>
+        <tr class="border-b bg-gray-50">
+            <th class="px-4 py-3 text-center w-12">No</th>
+            <th class="px-4 py-3 text-left">Master Training</th>
+            <th class="px-4 py-3 text-left">Job Number</th>
+            <th class="px-4 py-3 text-center">Tanggal</th>
+            <th class="px-4 py-3 text-center w-32">Aksi</th>
         </tr>
     </thead>
 
     <tbody>
-        @forelse($groups as $i => $group)
-            <tr class="border-b hover:bg-gray-50">
-                <td class="p-2 text-center">
-                    {{ $i + 1 }}
+        @forelse ($groups as $i => $group)
+
+            @php
+                $startDate = $group->events->min('tanggal_start');
+                $endDate   = $group->events->max('tanggal_end');
+            @endphp
+
+            <tr class="border-b hover:bg-gray-50 transition">
+
+                {{-- NO --}}
+                <td class="px-4 py-3 text-center text-gray-600">
+                    {{ $groups->firstItem() + $i }}
                 </td>
 
-                <td class="p-2 font-semibold">
-                    {{ $group->masterTraining->nama_training }}
+                {{-- MASTER TRAINING --}}
+                <td class="px-4 py-3 font-semibold text-gray-800">
+                    {{ $group->masterTraining->nama_training ?? '-' }}
                 </td>
 
-                <td class="p-2">
+                {{-- JOB NUMBER --}}
+                <td class="px-4 py-3 text-gray-700">
                     {{ $group->job_number ?? '-' }}
                 </td>
 
-                <td class="p-2 text-center">
-                    {{ $group->events->count() }}
+                {{-- TANGGAL --}}
+                <td class="px-4 py-3 text-center text-gray-600">
+                    @if ($startDate && $endDate)
+                        {{ \Carbon\Carbon::parse($startDate)->format('d') }}
+                        –
+                        {{ \Carbon\Carbon::parse($endDate)->format('d') }}
+                    @else
+                        -
+                    @endif
                 </td>
 
-                <td class="p-2">
-                    {{ $group->tempat ?? '-' }}
-                </td>
-
-@php
-    $statusClass = match ($group->status) {
-        'active' => 'bg-green-200 text-green-800',
-        'pending' => 'bg-yellow-200 text-yellow-800',
-        'done' => 'bg-blue-200 text-blue-800',
-        default => 'bg-gray-200 text-gray-800',
-    };
-@endphp
-
-<td class="p-2 text-center">
-    <span class="px-2 py-1 rounded text-xs font-semibold {{ $statusClass }}">
-        {{ strtoupper($group->status) }}
-    </span>
-</td>
-
-
-                <td class="p-2 text-center">
+                {{-- AKSI --}}
+                <td class="px-4 py-3 text-center">
                     <a href="{{ route('event-training.group.show', $group->id) }}"
-                        class="px-3 py-1 bg-indigo-600 text-white rounded">
+                       class="alkon-btn-secondary">
                         Detail
                     </a>
-
                 </td>
+
             </tr>
+
         @empty
             <tr>
-                <td colspan="7" class="p-4 text-center text-gray-500">
-                    Tidak ada data aktif
+                <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+                    Tidak ada data event
                 </td>
             </tr>
         @endforelse
     </tbody>
 </table>
 
-{{ $groups->links() }}
+{{-- PAGINATION --}}
+<div class="mt-4">
+    {{ $groups->links() }}
+</div>

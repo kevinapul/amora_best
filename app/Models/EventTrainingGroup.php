@@ -13,8 +13,8 @@ class EventTrainingGroup extends Model
         'master_training_id',
         'job_number',
         'nama_group',
-        'training_type',
-        'harga_paket',
+        'training_type',   // reguler | inhouse
+        'harga_paket',     // KHUSUS INHOUSE
         'tempat',
         'jenis_sertifikasi',
         'sertifikasi',
@@ -44,7 +44,7 @@ class EventTrainingGroup extends Model
         return $this->training_type === 'reguler';
     }
 
-    /* ================= SUMMARY HELPERS ================= */
+    /* ================= PARTICIPANT ================= */
 
     public function totalParticipants(): int
     {
@@ -53,6 +53,11 @@ class EventTrainingGroup extends Model
             ->count();
     }
 
+    /* ================= FINANCE (SINGLE SOURCE) ================= */
+
+    /**
+     * TOTAL TAGIHAN KONTRAK
+     */
     public function totalTagihan(): float
     {
         // INHOUSE → 1x harga paket
@@ -60,27 +65,35 @@ class EventTrainingGroup extends Model
             return (float) ($this->harga_paket ?? 0);
         }
 
-        // REGULER → akumulasi semua peserta
+        // REGULER → akumulasi semua peserta semua event
         return $this->events
             ->flatMap(fn ($e) => $e->participants)
-            ->sum(fn ($p) => $p->pivot->harga_peserta);
+            ->sum(fn ($p) => (float) ($p->pivot->harga_peserta ?? 0));
     }
 
-public function totalLunas(): float
-{
-    return $this->events
-        ->flatMap(fn ($e) => $e->participants)
-        ->sum(fn ($p) => (float) ($p->pivot->paid_amount ?? 0));
-}
+    /**
+     * TOTAL YANG SUDAH DIBAYAR
+     */
+    public function totalLunas(): float
+    {
+        return $this->events
+            ->flatMap(fn ($e) => $e->participants)
+            ->sum(fn ($p) => (float) ($p->pivot->paid_amount ?? 0));
+    }
 
-
+    /**
+     * SISA TAGIHAN
+     */
     public function sisaTagihan(): float
     {
         return max(0, $this->totalTagihan() - $this->totalLunas());
     }
 
-    /* ================= FINANCE ================= */
+    /* ================= FINANCE STATUS ================= */
 
+    /**
+     * Semua event sudah di-ACC finance
+     */
     public function isFinanceApproved(): bool
     {
         if ($this->events->isEmpty()) {
@@ -90,22 +103,22 @@ public function totalLunas(): float
         return $this->events->every(fn ($e) => $e->finance_approved);
     }
 
+    /**
+     * Label status keuangan (untuk view)
+     */
     public function financeStatus(): string
-{
-    $total = $this->totalTagihan();
-    $paid  = $this->totalLunas();
+    {
+        $total = $this->totalTagihan();
+        $paid  = $this->totalLunas();
 
-    if ($paid <= 0) {
-        return 'BELUM DIBAYAR';
+        if ($paid <= 0) {
+            return 'BELUM DIBAYAR';
+        }
+
+        if ($paid < $total) {
+            return 'SEBAGIAN DIBAYAR';
+        }
+
+        return 'LUNAS';
     }
-
-    if ($paid < $total) {
-        return 'SEBAGIAN DIBAYAR';
-    }
-
-    return 'LUNAS';
-}
-
-
-
 }

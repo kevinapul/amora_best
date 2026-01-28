@@ -193,13 +193,16 @@ class EventTraining extends Model
     }
 
     /** cek semua peserta lunas */
-    public function isFullyPaid(): bool
+public function isFullyPaid(): bool
 {
-    return $this->participants->every(function ($p) {
-        return ($p->pivot->remaining_amount ?? $p->pivot->harga_peserta) <= 0;
-    });
-}
+    if ($this->isInhouse()) {
+        return $this->eventTrainingGroup?->harga_paket > 0;
+    }
 
+    return $this->participants->every(fn ($p) =>
+        ($p->pivot->remaining_amount ?? $p->pivot->harga_peserta) <= 0
+    );
+}
 
     /** bulk bayar per perusahaan / individu */
     public function bulkPay(?string $company, float $amount): void

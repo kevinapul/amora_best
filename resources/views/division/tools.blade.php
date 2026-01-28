@@ -24,12 +24,17 @@
             </a>
 
             <!-- Ops -->
-            <a href="{{ route('division.ops') }}" 
-               class="block bg-white p-6 shadow-md rounded-lg hover:bg-gray-100 transition">
-                <h4 class="text-lg font-semibold mb-2">🏭 Operasional</h4>
-                <p class="text-gray-600 text-sm">Tools pendukung operasional.</p>
-            </a>
+                    <a href="{{ route('event-staff.events') }}"
+                        class="block bg-white p-6 shadow-md sm:rounded-lg hover:bg-gray-100 transition">
+                        <h4 class="text-lg font-semibold text-gray-800 mb-2">👨‍🏫 Instruktur & Training Officer</h4>
+                        <p class="text-gray-600 text-sm">Kelola instruktur.</p>
+                    </a>
 
+                                <a href="{{ route('laporan') }}"
+                        class="block bg-white p-6 shadow-md sm:rounded-lg hover:bg-gray-100 transition">
+                        <h4 class="text-lg font-semibold text-gray-800 mb-2">📊 Laporan</h4>
+                        <p class="text-gray-600 text-sm">Data laporan bulanan.</p>
+                    </a>
         </div>
     </div>
 </x-app-layout>

@@ -87,6 +87,8 @@ public function store(Request $request)
         'tempat'             => 'nullable|string',
         'jenis_sertifikasi'  => 'nullable|string',
         'sertifikasi'        => 'nullable|string',
+        'training_type' => 'required|in:reguler,inhouse',
+'harga_paket'   => 'required_if:training_type,inhouse|numeric|min:0',
 
         // EVENTS
         'events'               => 'required|array|min:1',
@@ -114,6 +116,10 @@ public function store(Request $request)
             'tempat'             => $request->tempat,
             'jenis_sertifikasi'  => $request->jenis_sertifikasi,
             'sertifikasi'        => $request->sertifikasi,
+            'training_type' => $request->training_type,
+'harga_paket'   => $request->training_type === 'inhouse'
+    ? $request->harga_paket
+    : null,
         ]);
 
         /* ================= EVENTS ================= */
