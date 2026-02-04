@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Participant extends Model
 {
     protected $fillable = [
+        'company_id',
         'nama',
         'perusahaan',
         'no_hp',

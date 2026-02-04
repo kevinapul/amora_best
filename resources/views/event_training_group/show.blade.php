@@ -16,13 +16,12 @@
 @endphp
 
 <x-app-layout>
-
 <div class="alkon-root">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         <!-- ================= HEADER ================= -->
         <div class="alkon-panel mb-8">
-            <div class="alkon-panel-body flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="alkon-panel-body flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
 
                 <div>
                     <h1 class="text-2xl font-semibold text-[var(--alkon-text)]">
@@ -41,10 +40,20 @@
                     </div>
                 </div>
 
-                <a href="{{ route('event-training.index') }}"
-                   class="alkon-btn-secondary">
-                    ← Kembali
-                </a>
+                <div class="flex flex-wrap gap-3">
+                    {{-- 🔑 FINANCE GROUP (PRIMARY) --}}
+                    @can('approveFinance', $group)
+                        <a href="{{ route('finance.group.show', $group->id) }}"
+                           class="alkon-btn-primary bg-yellow-600 hover:bg-yellow-700">
+                            💰 Kelola Invoice & Pembayaran
+                        </a>
+                    @endcan
+
+                    <a href="{{ route('event-training.index') }}"
+                       class="alkon-btn-secondary">
+                        ← Kembali
+                    </a>
+                </div>
 
             </div>
         </div>
@@ -175,5 +184,4 @@
 
     </div>
 </div>
-
 </x-app-layout>

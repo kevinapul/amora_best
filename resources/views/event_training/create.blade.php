@@ -22,14 +22,11 @@
             {{-- ================= MASTER TRAINING ================= --}}
             <div class="mb-6">
                 <label class="font-medium">Master Training *</label>
-                <select id="master_training"
-                        name="master_training_id"
-                        class="w-full p-2 border rounded-lg mt-1"
-                        required>
+                <select id="master_training" name="master_training_id" class="w-full p-2 border rounded-lg mt-1"
+                    required>
                     <option value="">-- Pilih Master Training --</option>
                     @foreach ($masters as $m)
-                        <option value="{{ $m->id }}"
-                                data-trainings='@json($m->trainings)'>
+                        <option value="{{ $m->id }}" data-trainings='@json($m->trainings)'>
                             {{ $m->nama_training }}
                         </option>
                     @endforeach
@@ -40,20 +37,17 @@
             <div class="grid grid-cols-2 gap-4 mb-6">
                 <div>
                     <label class="font-medium">Job Number</label>
-                    <input type="text" name="job_number"
-                           class="w-full border rounded-lg p-2">
+                    <input type="text" name="job_number" class="w-full border rounded-lg p-2">
                 </div>
 
                 <div>
                     <label class="font-medium">Tempat</label>
-                    <input type="text" name="tempat"
-                           class="w-full border rounded-lg p-2">
+                    <input type="text" name="tempat" class="w-full border rounded-lg p-2">
                 </div>
 
                 <div>
                     <label class="font-medium">Jenis Sertifikasi</label>
-                    <select name="jenis_sertifikasi"
-                            class="w-full border rounded-lg p-2">
+                    <select name="jenis_sertifikasi" class="w-full border rounded-lg p-2">
                         <option value="">-- Pilih --</option>
                         <option value="KEMENTERIAN">Kementerian</option>
                         <option value="BNSP">BNSP</option>
@@ -63,9 +57,51 @@
 
                 <div>
                     <label class="font-medium">Kemitraan</label>
-                    <input type="text" name="sertifikasi"
-                           class="w-full border rounded-lg p-2">
+                    <input type="text" name="sertifikasi" class="w-full border rounded-lg p-2">
                 </div>
+
+                <div class="mb-6">
+                    <label class="font-medium">Tipe Training *</label>
+                    <select name="training_type" id="training_type" class="w-full border rounded-lg p-2" required>
+                        <option value="">-- Pilih --</option>
+                        <option value="reguler">Reguler</option>
+                        <option value="inhouse">Inhouse</option>
+                    </select>
+                </div>
+
+                <div class="mb-6 hidden" id="harga-paket-wrapper">
+                    <label class="font-medium">Harga Paket (Inhouse)</label>
+
+                    <div class="flex items-center border rounded-lg overflow-hidden">
+                        <span class="px-3 bg-gray-100 text-gray-600 font-medium">Rp</span>
+                        <input type="text" id="harga_paket_display" class="flex-1 p-2 outline-none" placeholder="0">
+                    </div>
+
+                    <input type="hidden" name="harga_paket" id="harga_paket_value">
+
+                    <p class="text-sm text-gray-500 mt-1">
+                        Harga total kontrak inhouse
+                    </p>
+                </div>
+
+                <div class="mb-6 hidden" id="billing-company-wrapper">
+                    <label class="font-medium">Perusahaan Induk (Penagihan)</label>
+
+                    <select name="billing_company_id" class="w-full border rounded-lg p-2 mt-1">
+                        <option value="">-- Pilih Perusahaan --</option>
+                        @foreach ($companies as $company)
+                            <option value="{{ $company->id }}">
+                                {{ $company->name }}
+                            </option>
+                        @endforeach
+                    </select>
+
+                    <p class="text-sm text-gray-500 mt-1">
+                        Invoice INHOUSE hanya akan ditagihkan ke perusahaan ini
+                    </p>
+                </div>
+
+
             </div>
 
             <hr class="my-6">
@@ -74,12 +110,10 @@
             <div id="child-events"></div>
 
             <div class="flex justify-end gap-2 mt-8">
-                <a href="{{ route('event-training.index') }}"
-                   class="px-4 py-2 bg-gray-500 text-white rounded-lg">
+                <a href="{{ route('event-training.index') }}" class="px-4 py-2 bg-gray-500 text-white rounded-lg">
                     Kembali
                 </a>
-                <button type="submit"
-                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg">
+                <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg">
                     Simpan
                 </button>
             </div>
@@ -91,9 +125,9 @@
         const masterSelect = document.getElementById('master_training');
         const container = document.getElementById('child-events');
 
-        const days   = [...Array(31)].map((_, i) => i + 1);
-        const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-        const years  = [...Array(5)].map((_, i) => new Date().getFullYear() + i);
+        const days = [...Array(31)].map((_, i) => i + 1);
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        const years = [...Array(5)].map((_, i) => new Date().getFullYear() + i);
 
         function options(arr) {
             return arr.map(v =>
@@ -172,28 +206,43 @@
     </script>
 
     {{-- ================= SCRIPT TOGGLE NON TRAINING (FINAL FIX) ================= --}}
-    <script>
-        document.addEventListener('change', function (e) {
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const trainingType   = document.getElementById('training_type');
+    const hargaWrapper   = document.getElementById('harga-paket-wrapper');
+    const billingWrapper = document.getElementById('billing-company-wrapper');
 
-            if (!e.target.name?.includes('[jenis_event]')) return;
+    const displayInput = document.getElementById('harga_paket_display');
+    const valueInput   = document.getElementById('harga_paket_value');
 
-            const card = e.target.closest('[data-event-card]');
-            if (!card) return;
+    function toggleInhouse() {
+        if (trainingType.value === 'inhouse') {
+            hargaWrapper.classList.remove('hidden');
+            billingWrapper.classList.remove('hidden');
+        } else {
+            hargaWrapper.classList.add('hidden');
+            billingWrapper.classList.add('hidden');
+            displayInput.value = '';
+            valueInput.value   = '';
+        }
+    }
 
-            const wrapper = card.querySelector('[data-non-training-wrapper]');
-            const select  = wrapper?.querySelector('select');
+    trainingType.addEventListener('change', toggleInhouse);
 
-            if (!wrapper || !select) return;
+    // kalau halaman reload & value sudah ada
+    toggleInhouse();
 
-            if (e.target.value === 'non_training') {
-                wrapper.classList.remove('hidden');
-                select.disabled = false;
-            } else {
-                wrapper.classList.add('hidden');
-                select.value = '';
-                select.disabled = true;
-            }
-        });
-    </script>
+    function formatRupiah(value) {
+        return value.replace(/\D/g, '')
+            .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+
+    displayInput.addEventListener('input', function () {
+        const raw = this.value.replace(/\D/g, '');
+        this.value = formatRupiah(raw);
+        valueInput.value = raw;
+    });
+});
+</script>
 
 </x-app-layout>

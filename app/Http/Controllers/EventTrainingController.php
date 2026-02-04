@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Models\EventStaff;
+use App\Models\Company;
 
 class EventTrainingController extends Controller
 {
@@ -62,15 +63,18 @@ class EventTrainingController extends Controller
 
     /* ================== CREATE ================== */
     public function create()
-    {
-        $this->authorize('create', EventTraining::class);
+{
+    $this->authorize('create', EventTraining::class);
 
-        return view('event_training.create', [
-            'masters' => MasterTraining::with('trainings')
-                ->orderBy('nama_training')
-                ->get()
-        ]);
-    }
+    return view('event_training.create', [
+        'masters' => MasterTraining::with('trainings')
+            ->orderBy('nama_training')
+            ->get(),
+
+        // 🔑 INI YANG HILANG
+        'companies' => Company::orderBy('name')->get(),
+    ]);
+}
 
 
     /* =====================================================
@@ -88,7 +92,10 @@ public function store(Request $request)
         'jenis_sertifikasi'  => 'nullable|string',
         'sertifikasi'        => 'nullable|string',
         'training_type' => 'required|in:reguler,inhouse',
-'harga_paket'   => 'required_if:training_type,inhouse|numeric|min:0',
+        'harga_paket' => 'nullable|required_if:training_type,inhouse|numeric|min:0',
+        'billing_company_id' => 'required_if:training_type,inhouse|exists:companies,id',
+
+
 
         // EVENTS
         'events'               => 'required|array|min:1',
@@ -117,10 +124,15 @@ public function store(Request $request)
             'jenis_sertifikasi'  => $request->jenis_sertifikasi,
             'sertifikasi'        => $request->sertifikasi,
             'training_type' => $request->training_type,
-'harga_paket'   => $request->training_type === 'inhouse'
-    ? $request->harga_paket
-    : null,
-        ]);
+    // 🔑 INHOUSE FIX
+            'harga_paket' => $request->training_type === 'inhouse'
+                ? $request->harga_paket
+                : null,
+
+            'billing_company_id' => $request->training_type === 'inhouse'
+                ? $request->billing_company_id
+                : null,
+            ]);
 
         /* ================= EVENTS ================= */
         foreach ($request->events as $event) {
@@ -197,18 +209,27 @@ public function approveFinance(EventTraining $eventTraining)
 {
     $this->authorize('approveFinance', $eventTraining);
 
-    abort_if(! $eventTraining->isFullyPaid(), 403, 'Belum lunas');
+    $group = $eventTraining->eventTrainingGroup;
 
-    $eventTraining->update([
+    // ✅ SATU SUMBER KEBENARAN
+    abort_if(! $group->isFullyPaid(), 403, 'Belum lunas');
+
+    // ✅ APPROVE DI LEVEL GROUP
+    $group->update([
         'finance_approved'    => true,
         'finance_approved_at' => now(),
     ]);
 
+    // 🔁 SYNC KE SEMUA EVENT (READ-ONLY / MIRROR)
+    foreach ($group->events as $event) {
+        $event->updateQuietly([
+            'finance_approved'    => true,
+            'finance_approved_at' => now(),
+        ]);
+    }
+
     return back()->with('success', 'Finance berhasil di-ACC');
 }
-
-
-
 
     /* ================== SHOW ================== */
 public function show(EventTraining $eventTraining)
@@ -377,22 +398,48 @@ public function modal(EventTraining $eventTraining)
     ]);
 }
 
+
+/**
+ * @deprecated
+ * DO NOT USE.
+ * Replaced by Invoice payment flow.
+ */
 public function bulkPayment(Request $request, EventTraining $eventTraining)
 {
-    $this->authorize('approveFinance', $eventTraining);
+    $this->authorize('bulkPayment', $eventTraining);
 
     abort_if($eventTraining->status !== 'done', 403);
     abort_if($eventTraining->finance_approved, 403);
 
-    $validated = $request->validate([
-        'company'       => 'required|string',
-        'amount'        => 'required|numeric|min:1',
-        'participants'  => 'nullable|array',
+    // 🔧 normalisasi rupiah
+    $request->merge([
+        'amount' => preg_replace('/\D/', '', $request->amount),
     ]);
+
+    $rules = [
+        'amount' => 'required|numeric|min:1',
+    ];
+
+    if ($eventTraining->isReguler()) {
+        $rules['company'] = 'required|string';
+        $rules['participants'] = 'nullable|array';
+    }
+
+    $validated = $request->validate($rules);
 
     DB::transaction(function () use ($eventTraining, $validated) {
 
-        // ================= INDIVIDU =================
+        // ================= INHOUSE =================
+        if ($eventTraining->isInhouse()) {
+
+            $group = $eventTraining->eventTrainingGroup;
+
+            $group->addPayment($validated['amount']);
+
+            return;
+        }
+
+        // ================= REGULER =================
         if ($validated['company'] === 'INDIVIDU') {
 
             abort_if(
@@ -412,9 +459,7 @@ public function bulkPayment(Request $request, EventTraining $eventTraining)
                 }
             }
 
-        }
-        // ================= PERUSAHAAN =================
-        else {
+        } else {
             $eventTraining->bulkPay(
                 $validated['company'],
                 $validated['amount']
@@ -424,6 +469,8 @@ public function bulkPayment(Request $request, EventTraining $eventTraining)
 
     return back()->with('success', 'Pembayaran berhasil diproses');
 }
+
+
 
 public function finance(EventTraining $eventTraining)
 {

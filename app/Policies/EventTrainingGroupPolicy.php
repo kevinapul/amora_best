@@ -23,4 +23,16 @@ class EventTrainingGroupPolicy
             'admin'
         ]);
     }
+public function viewFinance(User $user): bool
+{
+    return in_array($user->role, ['finance', 'it']);
+}
+
+
+
+public function approveFinance(User $user, EventTrainingGroup $group): bool
+{
+    return in_array($user->role, ['finance', 'it'])
+        && ! $group->finance_approved;
+}
 }

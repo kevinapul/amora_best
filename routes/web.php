@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
 use App\Http\Controllers\{
     ProfileController,
     DashboardController,
@@ -11,6 +12,8 @@ use App\Http\Controllers\{
     HRController,
     MasterTrainingController,
     EventTrainingGroupController,
+    InvoiceController,
+    FinanceGroupController,
 };
 
 /*
@@ -48,63 +51,52 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     /* ==========================================================
      * MASTER TRAINING
-     * URL: /training
-     * VIEW: master-training.index
      * ========================================================== */
     Route::prefix('training')->name('master-training.')->group(function () {
         Route::get('/', [MasterTrainingController::class, 'index'])->name('index');
         Route::get('/create', [MasterTrainingController::class, 'create'])->name('create');
         Route::post('/', [MasterTrainingController::class, 'store'])->name('store');
         Route::get('/{masterTraining}', [MasterTrainingController::class, 'show'])->name('show');
-        Route::post('/event-training-group/{group}/approve',[EventTrainingGroupController::class, 'approve'])->name('event-training-group.approve');
 
+        Route::post(
+            '/event-training-group/{group}/approve',
+            [EventTrainingGroupController::class, 'approve']
+        )->name('event-training-group.approve');
     });
 
     /* ==========================================================
-     * EVENT TRAINING (CORE SYSTEM)
+     * EVENT TRAINING (CORE)
      * ========================================================== */
     Route::prefix('event-training')->name('event-training.')->group(function () {
 
-        // ✅ GROUP DETAIL (HARUS DI ATAS)
-    Route::get(
-        '/group/{group}',
-        [EventTrainingGroupController::class, 'show']
-    )->name('group.show');
+        // 🔹 GROUP DETAIL (PRIMARY)
+        Route::get('/group/{group}', [EventTrainingGroupController::class, 'show'])
+            ->name('group.show');
 
-    Route::get('/', [EventTrainingController::class, 'index'])->name('index');
-    Route::get('/create', [EventTrainingController::class, 'create'])->name('create');
-    Route::post('/', [EventTrainingController::class, 'store'])->name('store');
- 
-    // ✅ EVENT DETAIL (HARUS PALING BAWAH)
-    Route::get(
-        '/{eventTraining}',
-        [EventTrainingController::class, 'show']
-    )->name('show');
+        Route::get('/', [EventTrainingController::class, 'index'])->name('index');
+        Route::get('/create', [EventTrainingController::class, 'create'])->name('create');
+        Route::post('/', [EventTrainingController::class, 'store'])->name('store');
 
-    Route::get('/{eventTraining}/edit', [EventTrainingController::class, 'edit'])->name('edit');
-    Route::put('/{eventTraining}', [EventTrainingController::class, 'update'])->name('update');
-    Route::delete('/{eventTraining}', [EventTrainingController::class, 'destroy'])->name('destroy');
+        // 🔹 EVENT DETAIL (READ ONLY)
+        Route::get('/{eventTraining}', [EventTrainingController::class, 'show'])
+            ->name('show');
 
-       
+        Route::get('/{eventTraining}/edit', [EventTrainingController::class, 'edit'])
+            ->name('edit');
 
-        /* ===== ACC EVENT ===== */
+        Route::put('/{eventTraining}', [EventTrainingController::class, 'update'])
+            ->name('update');
+
+        Route::delete('/{eventTraining}', [EventTrainingController::class, 'destroy'])
+            ->name('destroy');
+
         Route::post('/{eventTraining}/approve', [EventTrainingController::class, 'approve'])
             ->name('approve');
 
-        /* ===== FINANCE ACC ===== */
         Route::post(
             '/{eventTraining}/approve-finance',
             [EventTrainingController::class, 'approveFinance']
         )->name('approveFinance');
-
-        /* ===== EVENT GROUP ===== */
-        Route::prefix('event-training-group')->name('event-training-group.')->group(function () {
-            Route::get('/{group}/edit', [EventTrainingGroupController::class, 'edit'])
-                ->name('edit');
-
-            Route::put('/{group}', [EventTrainingGroupController::class, 'update'])
-                ->name('update');
-        });
     });
 
     /* ==========================================================
@@ -126,29 +118,25 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('/participant/{participant}', [EventParticipantController::class, 'destroy'])
                 ->name('destroy');
 
+            // 🟡 LEGACY — DO NOT USE (Invoice replaces this)
             Route::post(
                 '/participant/{participant}/paid',
                 [EventParticipantController::class, 'markPaid']
             )->name('markPaid');
-
-            Route::post(
-                '/participant/{participant}/record-certificate',
-                [EventParticipantController::class, 'markCertificateRecorded']
-            )->name('recordCertificate');
-            Route::post(
-    '/bulk-payment',
-    [EventTrainingController::class, 'bulkPayment']
-)->name('event-training.bulk-payment');
         });
-        Route::get(
-    '/event-training/{eventTraining}/finance',
-    [EventTrainingController::class, 'finance']
-)->name('event-training.finance');
-Route::post(
-    '/{eventTraining}/bulk-payment',
-    [EventTrainingController::class, 'bulkPayment']
-)->name('event-training.bulk-payment');
 
+    /* ==========================================================
+     * LEGACY FINANCE EVENT (DO NOT USE)
+     * ========================================================== */
+    Route::get(
+        '/event-training/{eventTraining}/finance',
+        [EventTrainingController::class, 'finance']
+    )->name('event-training.finance');
+
+    Route::post(
+        '/event-training/{eventTraining}/bulk-payment',
+        [EventTrainingController::class, 'bulkPayment']
+    )->name('event-training.bulk-payment');
 
     /* ==========================================================
      * EVENT STAFF
@@ -174,7 +162,8 @@ Route::post(
     Route::view('/division/tools', 'division.tools')->name('division.tools');
     Route::view('/division/ops', 'division.ops')->name('division.ops');
 
-    Route::get('/division/hr', [HRController::class, 'index'])->name('division.hr');
+    Route::get('/division/hr', [HRController::class, 'index'])
+        ->name('division.hr');
 
     Route::post('/division/hr/force-checkout/{user}', [HRController::class, 'forceCheckout'])
         ->name('hr.forceCheckout');
@@ -197,5 +186,37 @@ Route::post(
     )->name('event-training.peserta');
 });
 
+/* ==========================================================
+ * TEST ONLY
+ * ========================================================== */
+Route::get('/test-invoice', function () {
+    $request = new Request([
+        'company_id' => 1,
+        'master_training_id' => 1,
+    ]);
 
-require __DIR__.'/auth.php';
+    return app(InvoiceController::class)->store($request);
+})->withoutMiddleware([\App\Http\Middleware\Authenticate::class]);
+
+/* ==========================================================
+ * FINANCE (PRIMARY)
+ * ========================================================== */
+Route::prefix('finance')->name('finance.')->group(function () {
+
+    Route::get('/group/{group}', [FinanceGroupController::class, 'show'])
+        ->name('group.show');
+
+    Route::post('/group/{group}/invoice', [FinanceGroupController::class, 'openInvoice'])
+        ->name('group.invoice');
+
+    Route::post('/invoice/{invoice}/pay', [FinanceGroupController::class, 'pay'])
+        ->name('invoice.pay');
+});
+
+Route::get(
+    '/invoice/{invoice}',
+    [InvoiceController::class, 'show']
+)->name('invoice.show');
+
+
+require __DIR__ . '/auth.php';

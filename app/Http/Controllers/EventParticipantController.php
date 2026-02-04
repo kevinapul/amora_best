@@ -6,6 +6,7 @@ use App\Models\EventTraining;
 use App\Models\Participant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\Company;
 
 class EventParticipantController extends Controller
 {
@@ -44,41 +45,68 @@ public function store(Request $request, EventTraining $event)
 {
     $this->authorize('addParticipant', $event);
 
-    $request->validate([
-        'perusahaan' => 'nullable|string|max:255',
+    // ================= VALIDASI =================
+$rules = [
+    'participants' => 'required|array|min:1',
 
-        'participants' => 'required|array|min:1',
+    'participants.*.nama' => 'required|string|max:255',
+    'participants.*.no_hp' => 'nullable|string|max:20',
+    'participants.*.nik'   => 'nullable|string|max:100',
 
-        'participants.*.nama' => 'required|string|max:255',
-        'participants.*.no_hp' => 'nullable|string|max:20',
-        'participants.*.nik'   => 'nullable|string|max:100',
+    'participants.*.jenis_layanan' =>
+        'required|in:pelatihan,pelatihan_sertifikasi,sertifikasi_resertifikasi',
+];
 
-        'participants.*.jenis_layanan' => 'required|in:pelatihan,pelatihan_sertifikasi,sertifikasi_resertifikasi',
-        'participants.*.harga_peserta' => 'required|integer|min:0',
-    ]);
+// 🔒 REGULER → perusahaan WAJIB
+if ($event->isReguler()) {
+    $rules['perusahaan'] = 'required|string|max:255';
+    $rules['participants.*.harga_peserta'] = 'required|integer|min:0';
+}
 
-    DB::transaction(function () use ($request, $event) {
+// 🟡 INHOUSE → perusahaan boleh kosong
+if ($event->isInhouse()) {
+    $rules['perusahaan'] = 'nullable|string|max:255';
+}
 
-        foreach ($request->participants as $p) {
+    $validated = $request->validate($rules);
 
-            $participant = Participant::create([
-                'nama'       => $p['nama'],
-                'perusahaan' => $request->perusahaan,
-                'no_hp'      => $p['no_hp'] ?? null,
-                'nik'        => $p['nik'] ?? null,
-            ]);
+    // ================= STORE =================
+DB::transaction(function () use ($request, $event) {
 
-            $event->participants()->attach($participant->id, [
-    'jenis_layanan'    => $p['jenis_layanan'],
-    'harga_peserta'    => $p['harga_peserta'],
+    $companyId = null;
+    $companyName = trim((string) $request->input('perusahaan'));
 
-    // 🔥 WAJIB ADA
-    'paid_amount'      => 0,
-    'remaining_amount' => $p['harga_peserta'],
-    'is_paid'          => false,
-]);
-        }
-    });
+    if ($companyName !== '') {
+        $company = Company::firstOrCreate([
+            'name' => $companyName,
+        ]);
+
+        $companyId = $company->id;
+    }
+
+    foreach ($request->input('participants') as $p) {
+
+        $participant = Participant::create([
+            'company_id' => $companyId,
+            'nama'       => $p['nama'],
+            'perusahaan' => $companyName ?: null,
+            'no_hp'      => $p['no_hp'] ?? null,
+            'nik'        => $p['nik'] ?? null,
+        ]);
+
+        $hargaPeserta = $event->isInhouse()
+            ? 0
+            : (int) $p['harga_peserta'];
+
+        $event->participants()->attach($participant->id, [
+            'jenis_layanan'    => $p['jenis_layanan'],
+            'harga_peserta'    => $hargaPeserta,
+            'paid_amount'      => 0,
+            'remaining_amount' => $hargaPeserta,
+            'is_paid'          => $event->isInhouse(),
+        ]);
+    }
+});
 
     return redirect()
         ->route('event-training.show', $event)
@@ -101,9 +129,15 @@ public function store(Request $request, EventTraining $event)
             'catatan'       => 'nullable|string',
         ];
 
-        if ($event->jenis_event === 'reguler') {
-            $rules['harga_peserta'] = 'required|integer|min:0';
-        }
+        if ($event->isReguler()) {
+    $rules['harga_peserta'] = 'required|integer|min:0';
+}
+
+// 🔒 INHOUSE: harga TIDAK BOLEH DIUBAH
+if ($event->isInhouse()) {
+    unset($rules['harga_peserta']);
+}
+
 
         $validated = $request->validate($rules);
 
@@ -118,7 +152,7 @@ public function store(Request $request, EventTraining $event)
                 'catatan'       => $validated['catatan'] ?? null,
             ]);
 
-            if ($event->jenis_event === 'reguler' && isset($validated['harga_peserta'])) {
+            if ($event->isReguler() && isset($validated['harga_peserta'])) {
                 $event->participants()->updateExistingPivot($participant->id, [
                     'harga_peserta' => $validated['harga_peserta']
                 ]);
@@ -140,11 +174,17 @@ public function store(Request $request, EventTraining $event)
     }
 
     /* ================== FINANCE PESERTA ================== */
+    /**
+ * @deprecated
+ * DO NOT USE.
+ * Replaced by Invoice payment flow.
+ */
     public function markPaid(EventTraining $event, Participant $participant)
     {
         $this->authorize('updateFinance', $event);
 
-        abort_if($event->jenis_event !== 'reguler', 403);
+        abort_if(! $event->isReguler(), 403);
+        $this->authorize('updateFinance', $event);
         abort_if($event->status !== 'done', 403);
         abort_if($event->finance_approved, 403);
 
@@ -186,7 +226,4 @@ public function store(Request $request, EventTraining $event)
             'success',
             "Data sertifikat peserta {$participant->nama} berhasil dicatat.");
     }
-
-
-    
 }

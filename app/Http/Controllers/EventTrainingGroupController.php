@@ -75,4 +75,34 @@ public function show(EventTrainingGroup $group)
     return view('event_training_group.show', compact('group'));
 }
 
+public function addPayment(float $amount): void
+{
+    if (! $this->isInhouse()) {
+        throw new \Exception('addPayment hanya untuk INHOUSE');
+    }
+
+    if ($amount <= 0) {
+        throw new \Exception('Jumlah pembayaran tidak valid');
+    }
+
+    $totalPaid = $this->totalLunas();
+    $newTotal  = $totalPaid + $amount;
+
+    if ($newTotal > $this->totalTagihan()) {
+        throw new \Exception('Pembayaran melebihi harga paket');
+    }
+
+    // 🔥 SIMPAN KE SEMUA EVENT → 1 EVENT JADI HOLDER
+    $event = $this->events()->firstOrFail();
+
+    foreach ($event->participants as $p) {
+        $p->pivot->update([
+            'paid_amount'      => $newTotal,
+            'remaining_amount' => max(0, $this->totalTagihan() - $newTotal),
+            'is_paid'          => $newTotal >= $this->totalTagihan(),
+        ]);
+    }
+}
+
+
 }

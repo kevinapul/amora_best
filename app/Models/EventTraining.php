@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
+use App\Models\Invoice;
 
 class EventTraining extends Model
 {
@@ -73,7 +74,7 @@ class EventTraining extends Model
     }
 
     /* =====================================================
-     * STAFF HELPERS (UNTUK VIEW)
+     * STAFF HELPERS
      * ===================================================== */
 
     public function staffsByRole(): array
@@ -124,12 +125,12 @@ class EventTraining extends Model
 
     public function isReguler(): bool
     {
-        return $this->eventTrainingGroup?->training_type === 'reguler';
+        return $this->eventTrainingGroup?->isReguler() ?? false;
     }
 
     public function isInhouse(): bool
     {
-        return $this->eventTrainingGroup?->training_type === 'inhouse';
+        return $this->eventTrainingGroup?->isInhouse() ?? false;
     }
 
     public function hargaPaket(): ?float
@@ -165,10 +166,9 @@ class EventTraining extends Model
     }
 
     /* =====================================================
-     * FINANCE HELPERS (INI INTI BULK PAYMENT)
+     * FINANCE HELPERS
      * ===================================================== */
 
-    /** daftar perusahaan (NULL = individu) */
     public function companies()
     {
         return $this->participants
@@ -178,7 +178,6 @@ class EventTraining extends Model
             ->values();
     }
 
-    /** summary keuangan per perusahaan / individu */
     public function financeSummary(?string $company = null): array
     {
         $participants = $this->participants
@@ -192,11 +191,10 @@ class EventTraining extends Model
         ];
     }
 
-    /** cek semua peserta lunas */
 public function isFullyPaid(): bool
 {
     if ($this->isInhouse()) {
-        return $this->eventTrainingGroup?->harga_paket > 0;
+        return $this->eventTrainingGroup->sisaTagihan() <= 0;
     }
 
     return $this->participants->every(fn ($p) =>
@@ -204,7 +202,7 @@ public function isFullyPaid(): bool
     );
 }
 
-    /** bulk bayar per perusahaan / individu */
+
     public function bulkPay(?string $company, float $amount): void
     {
         $participants = $this->participants
@@ -217,7 +215,6 @@ public function isFullyPaid(): bool
             if ($remaining <= 0) break;
 
             $pivot = $p->pivot;
-
             if ($pivot->remaining_amount <= 0) continue;
 
             $pay = min($remaining, $pivot->remaining_amount);
@@ -265,47 +262,49 @@ public function isFullyPaid(): bool
             default                 => null,
         };
     }
+
     /* =====================================================
- * FINANCE TOTAL HELPERS (UNTUK VIEW)
- * ===================================================== */
+     * FINANCE TOTAL (PROXY KE GROUP)
+     * ===================================================== */
 
-public function totalTagihan(): float
-{
-    // INHOUSE → 1x harga paket
-    if ($this->isInhouse()) {
-        return (float) ($this->eventTrainingGroup?->harga_paket ?? 0);
+    public function totalTagihan(): float
+    {
+        return $this->eventTrainingGroup?->totalTagihan() ?? 0;
     }
 
-    // REGULER → total semua peserta
-    return $this->participants
-        ->sum(fn ($p) => $p->pivot->harga_peserta);
-}
-
-public function totalPaid(): float
-{
-    return $this->participants
-        ->sum(fn ($p) => $p->pivot->paid_amount ?? 0);
-}
-
-public function totalRemaining(): float
-{
-    return max(0, $this->totalTagihan() - $this->totalPaid());
-}
-
-public function financeBadge(): array
-{
-    $total = $this->totalTagihan();
-    $paid  = $this->totalPaid();
-
-    if ($paid <= 0) {
-        return ['label' => 'BELUM BAYAR', 'color' => 'red'];
+    public function totalPaid(): float
+    {
+        return $this->eventTrainingGroup?->totalLunas() ?? 0;
     }
 
-    if ($paid < $total) {
-        return ['label' => 'CICILAN', 'color' => 'yellow'];
+    public function totalRemaining(): float
+    {
+        return $this->eventTrainingGroup?->sisaTagihan() ?? 0;
     }
 
-    return ['label' => 'LUNAS', 'color' => 'green'];
-}
+    public function financeBadge(): array
+    {
+        $total = $this->totalTagihan();
+        $paid  = $this->totalPaid();
 
+        if ($paid <= 0) {
+            return ['label' => 'BELUM BAYAR', 'color' => 'red'];
+        }
+
+        if ($paid < $total) {
+            return ['label' => 'CICILAN', 'color' => 'yellow'];
+        }
+
+        return ['label' => 'LUNAS', 'color' => 'green'];
+    }
+
+    
+public function isCompanyPaid(int $companyId): bool
+{
+    $group = $this->eventTrainingGroup;
+
+    if (! $group) return false;
+
+    return $group->isCompanyPaid($companyId);
+}
 }

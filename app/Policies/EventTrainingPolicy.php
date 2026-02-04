@@ -87,14 +87,23 @@ class EventTrainingPolicy
      * ===================================================== */
 
     public function addParticipant(User $user, EventTraining $event): bool
-    {
-        if ($event->status === 'done') {
-            return $user->role === 'it';
-        }
-
-        return in_array($user->role, ['marketing', 'it'])
-            && in_array($event->status, ['active', 'on_progress']);
+{
+    // 🔒 INHOUSE + FINANCE APPROVED = TOTAL LOCK
+    if (
+        $event->isInhouse() &&
+        $event->eventTrainingGroup->finance_approved
+    ) {
+        return false;
     }
+
+    if ($event->status === 'done') {
+        return $user->role === 'it';
+    }
+
+    return in_array($user->role, ['marketing', 'it'])
+        && in_array($event->status, ['active', 'on_progress']);
+}
+
 
     public function addInstructor(User $user, EventTraining $event): bool
     {
@@ -113,7 +122,17 @@ public function approveFinance(User $user, EventTraining $event): bool
 {
     return $user->hasRole(['finance', 'it'])
         && $event->status === 'done'
+        && ! $event->eventTrainingGroup->finance_approved;
+}
+
+
+public function bulkPayment(User $user, EventTraining $event): bool
+{
+    return $user->hasRole(['finance', 'it'])
+        && $event->status === 'done'
         && ! $event->finance_approved;
 }
+
+
 
 }

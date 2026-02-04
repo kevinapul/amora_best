@@ -71,6 +71,8 @@ class EventParticipant extends Pivot
         }
     });
 }
+
+/* 🟡 DIBEKUKAN (READ ONLY) */
 public function pay(float $amount): void
 {
     if ($amount <= 0) return;
