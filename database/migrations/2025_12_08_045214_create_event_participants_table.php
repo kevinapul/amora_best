@@ -11,53 +11,45 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('event_participants', function (Blueprint $table) {
-            $table->id();
+Schema::create('event_participants', function (Blueprint $table) {
+    $table->id();
 
-            /* ================= RELATION ================= */
-            $table->foreignId('event_training_id')
-                  ->constrained('event_trainings')
-                  ->cascadeOnDelete();
+    $table->foreignId('event_training_id')
+        ->constrained()
+        ->cascadeOnDelete();
 
-            $table->foreignId('participant_id')
-                  ->constrained('participants')
-                  ->cascadeOnDelete();
+    $table->foreignId('participant_id')
+        ->constrained()
+        ->cascadeOnDelete();
 
-            /* ================= JENIS LAYANAN =================
-               - pelatihan
-               - pelatihan_sertifikasi
-               - sertifikasi_resertifikasi
-            */
-            $table->enum('jenis_layanan', [
-                'pelatihan',
-                'pelatihan_sertifikasi',
-                'sertifikasi_resertifikasi',
-            ]);
+    // perusahaan saat ikut training
+    $table->foreignId('company_id')
+        ->nullable()
+        ->constrained('companies')
+        ->nullOnDelete();
 
-            /* ================= FINANCE ================= */
-            $table->integer('harga_peserta')->default(0);
+    $table->enum('jenis_layanan',[
+        'pelatihan',
+        'pelatihan_sertifikasi',
+        'sertifikasi_resertifikasi'
+    ]);
 
-            $table->boolean('is_paid')
-                  ->default(false);
+    $table->decimal('harga_peserta',15,2)->default(0);
 
-            $table->timestamp('paid_at')
-                  ->nullable();
+    $table->decimal('paid_amount',15,2)->default(0);
+    $table->decimal('remaining_amount',15,2)->default(0);
 
-            /* ================= CERTIFICATE ================= */
-            $table->boolean('certificate_ready')
-                  ->default(false);
+    $table->boolean('is_paid')->default(false);
+    $table->timestamp('paid_at')->nullable();
 
-            $table->timestamp('certificate_issued_at')
-                  ->nullable();
+    $table->boolean('certificate_ready')->default(false);
+    $table->timestamp('certificate_issued_at')->nullable();
 
-            $table->timestamps();
+    $table->timestamps();
 
-            /* ================= CONSTRAINT ================= */
-            $table->unique(
-                ['event_training_id', 'participant_id'],
-                'event_participant_unique'
-            );
-        });
+    $table->unique(['event_training_id','participant_id']);
+});
+
     }
 
     /**

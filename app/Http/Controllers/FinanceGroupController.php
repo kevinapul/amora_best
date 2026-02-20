@@ -16,63 +16,68 @@ class FinanceGroupController extends Controller
      * SHOW FINANCE GROUP
      * ===================================================== */
     public function show(EventTrainingGroup $group, Request $request)
-    {
-        $this->authorize('approveFinance', $group);
+{
+    $this->authorize('approveFinance', $group);
 
-        /**
-         * ===============================
-         * COMPANY CONTEXT
-         * - REGULER  → company peserta
-         * - INHOUSE  → billing company (induk)
-         * ===============================
-         */
-        if ($group->isInhouse()) {
-            $companies = collect([$group->billingCompany])->filter();
-        } else {
-            $companies = Company::whereIn('id', function ($q) use ($group) {
-                $q->select('participants.company_id')
-                    ->from('participants')
-                    ->join(
-                        'event_participants',
-                        'participants.id',
-                        '=',
-                        'event_participants.participant_id'
-                    )
-                    ->join(
-                        'event_trainings',
-                        'event_trainings.id',
-                        '=',
-                        'event_participants.event_training_id'
-                    )
-                    ->where(
-                        'event_trainings.event_training_group_id',
-                        $group->id
-                    )
-                    ->whereNotNull('participants.company_id');
-            })->get();
-        }
+    /**
+     * ===============================
+     * COMPANY CONTEXT
+     * - REGULER  → company dari pivot peserta
+     * - INHOUSE  → billing company induk
+     * ===============================
+     */
+    if ($group->isInhouse()) {
 
-        /**
-         * ===============================
-         * LOAD INVOICE CONTEXT
-         * ===============================
-         */
-        $invoice = null;
+        $companies = collect([$group->billingCompany])->filter();
 
-        if ($request->filled('company_id')) {
-            $invoice = Invoice::where('company_id', $request->company_id)
-                ->where('master_training_id', $group->master_training_id)
-                ->whereNotIn('status', ['cancelled'])
-                ->latest()
-                ->first();
-        }
+    } else {
 
-        return view('finance.group', [
-            'group'     => $group,
-            'companies' => $companies,
-            'invoice'   => $invoice,
-        ]);
+        $companies = Company::whereIn('id', function ($q) use ($group) {
+            $q->select('event_participants.company_id')
+                ->from('event_participants')
+                ->join(
+                    'event_trainings',
+                    'event_trainings.id',
+                    '=',
+                    'event_participants.event_training_id'
+                )
+                ->where(
+                    'event_trainings.event_training_group_id',
+                    $group->id
+                )
+                ->whereNotNull('event_participants.company_id');
+        })->get();
     }
+
+    /**
+     * ===============================
+     * LOAD INVOICE CONTEXT
+     * ===============================
+     */
+    $invoice = null;
+
+    if ($request->filled('company_id')) {
+        $invoice = Invoice::where('company_id', $request->company_id)
+            ->where('master_training_id', $group->master_training_id)
+            ->whereNotIn('status', ['cancelled'])
+            ->latest()
+            ->first();
+    }
+
+    /**
+     * ===============================
+     * 🔥 WAJIB LOAD PARTICIPANT + PIVOT
+     * ===============================
+     */
+    $group->load('events.participants');
+
+    return view('finance.group', [
+        'group'     => $group,
+        'companies' => $companies,
+        'invoice'   => $invoice,
+    ]);
+}
+
 
     /* =====================================================
      * OPEN / CREATE INVOICE (SINGLE SOURCE OF TRUTH)
@@ -177,29 +182,44 @@ class FinanceGroupController extends Controller
 
                 $total = (float) $group->harga_paket;
             } else {
-                // REGULER → PER PESERTA
-                $participants = $group->events
-                    ->flatMap(fn ($e) => $e->participants)
-                    ->filter(fn ($p) => $p->company_id == $companyId);
+    // REGULER → PER PESERTA
+    $participants = $group->events
+        ->flatMap(fn ($e) => $e->participants)
+        ->filter(fn ($p) => $p->pivot->company_id == $companyId);
 
-                foreach ($participants as $participant) {
-                    $harga = (float) ($participant->pivot->harga_peserta ?? 0);
-                    if ($harga <= 0) continue;
+    $event = $group->events->first();
 
-                    InvoiceItem::create([
-                        'invoice_id'              => $invoice->id,
-                        'event_training_group_id' => $group->id,
-                        'description'             => $participant->nama
-                            . ' – ' . $participant->pivot->jenis_layanan,
-                        'qty'                     => 1,
-                        'price'                   => $harga,
-                        'subtotal'                => $harga,
-                        'order'                   => $order++,
-                    ]);
+    if ($event && $event->tanggal_start && $event->tanggal_end) {
+        $tgl =
+            \Carbon\Carbon::parse($event->tanggal_start)->format('d')
+            . ' - ' .
+            \Carbon\Carbon::parse($event->tanggal_end)->format('d F Y');
+    } else {
+        $tgl = '-';
+    }
 
-                    $total += $harga;
-                }
-            }
+    $training = $group->masterTraining->nama_training ?? '-';
+    $sertifikasi = $group->jenis_sertifikasi ?? '-';
+
+    foreach ($participants as $participant) {
+        $harga = (float) ($participant->pivot->harga_peserta ?? 0);
+        if ($harga <= 0) continue;
+
+        $desc = "Training {$training} Sertifikasi {$sertifikasi} {$tgl} an. {$participant->nama}";
+
+        InvoiceItem::create([
+            'invoice_id'              => $invoice->id,
+            'event_training_group_id' => $group->id,
+            'description'             => $desc,
+            'qty'                     => 1,
+            'price'                   => $harga,
+            'subtotal'                => $harga,
+            'order'                   => $order++,
+        ]);
+
+        $total += $harga;
+    }
+}
 
             /**
              * ===============================

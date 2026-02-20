@@ -1,215 +1,276 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <title>Invoice {{ $invoice->invoice_number }}</title>
+<meta charset="UTF-8">
+<title>Invoice {{ $invoice->invoice_number }}</title>
 
-    <style>
-        body {
-            font-family: Arial, Helvetica, sans-serif;
-            background: #f5f7f6;
-            color: #111827;
-            margin: 0;
-            padding: 40px;
-        }
+<style>
+body{
+    font-family: Arial, Helvetica, sans-serif;
+    background:#fff;
+    margin:0;
+    padding:40px;
+    color:#111;
+}
 
-        .invoice-container {
-            max-width: 900px;
-            margin: auto;
-            background: white;
-            padding: 40px;
-            border-radius: 12px;
-            border: 1px solid #e5e7eb;
-        }
+.invoice-box{
+    width:210mm;
+    min-height:297mm;
+    margin:auto;
+    padding:20mm;
+    background:white;
+    box-sizing:border-box;
+}
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 30px;
-        }
+/* HEADER */
+.top{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    margin-bottom:25px;
+}
 
-        .header h1 {
-            margin: 0;
-            font-size: 28px;
-            letter-spacing: 1px;
-        }
+.company-left{width:60%;}
+.company-left img{width:80px;margin-bottom:10px;}
 
-        .company-info,
-        .invoice-info {
-            font-size: 14px;
-            line-height: 1.6;
-        }
+.company-name{
+    font-weight:bold;
+    font-size:18px;
+    margin-bottom:6px;
+}
 
-        .invoice-info {
-            text-align: right;
-        }
+.company-detail{
+    font-size:14px;
+    line-height:1.6;
+}
 
-        .status {
-            display: inline-block;
-            padding: 6px 14px;
-            border-radius: 999px;
-            font-size: 12px;
-            font-weight: bold;
-            margin-top: 6px;
-        }
+.invoice-title{
+    text-align:right;
+    width:40%;
+}
 
-        .status.paid {
-            background: #dcfce7;
-            color: #166534;
-        }
+.invoice-title h1{
+    margin:0;
+    font-size:38px;
+    letter-spacing:4px;
+}
 
-        .status.partial {
-            background: #fef3c7;
-            color: #92400e;
-        }
+/* INFO BAR */
+.info-bar{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    margin:30px 0;
+}
 
-        .status.draft {
-            background: #e5e7eb;
-            color: #374151;
-        }
+.info-item{
+    border-left:4px solid #0f3d2e;
+    padding-left:12px;
+    text-align:center;
+    font-size:14px;
+}
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 30px;
-        }
+/* TABLE */
+table{
+    width:100%;
+    border-collapse:collapse;
+}
 
-        table th {
-            background: #f9fafb;
-            text-align: left;
-            padding: 12px;
-            border-bottom: 2px solid #e5e7eb;
-            font-size: 13px;
-        }
+thead{
+    background:#0f3d2e;
+    color:white;
+}
 
-        table td {
-            padding: 12px;
-            border-bottom: 1px solid #e5e7eb;
-            font-size: 14px;
-        }
+th,td{
+    padding:12px;
+    font-size:14px;
+}
 
-        .text-right {
-            text-align: right;
-        }
+td{border-bottom:1px solid #ddd;}
 
-        .summary {
-            margin-top: 30px;
-            width: 100%;
-            max-width: 360px;
-            margin-left: auto;
-        }
+.text-right{text-align:right;}
 
-        .summary table td {
-            padding: 8px 0;
-        }
+/* SUMMARY */
+.summary{
+    width:260px;
+    margin-left:auto;
+    margin-top:25px;
+    border-top:2px solid #0f3d2e;
+    padding-top:10px;
+}
 
-        .total {
-            font-size: 18px;
-            font-weight: bold;
-        }
+.summary td{
+    padding:4px 0;
+    font-size:13px;
+}
 
-        .footer {
-            margin-top: 50px;
-            font-size: 12px;
-            color: #6b7280;
-            text-align: center;
-        }
+.total{
+    font-weight:700;
+    font-size:18px;
+}
 
-        @media print {
-            body {
-                background: white;
-                padding: 0;
-            }
+/* PAYMENT */
+.payment{
+    margin-top:60px;
+    font-size:14px;
+}
 
-            .invoice-container {
-                border: none;
-                border-radius: 0;
-            }
-        }
-    </style>
+/* SIGN */
+.sign{
+    margin-top:80px;
+    text-align:right;
+}
+
+/* PRINT PERFECT */
+@media print{
+body{padding:0;margin:0;background:white;}
+
+*{
+-webkit-print-color-adjust: exact !important;
+print-color-adjust: exact !important;
+}
+
+.invoice-box{
+    width:210mm;
+    min-height:297mm;
+    padding:20mm;
+    margin:0;
+    box-shadow:none;
+}
+
+@page{
+size:A4;
+margin:0;
+}
+}
+</style>
 </head>
+
 <body>
+<div class="invoice-box">
 
-<div class="invoice-container">
+<!-- HEADER -->
+<div class="top">
 
-    {{-- ================= HEADER ================= --}}
-    <div class="header">
-        <div>
-            <h1>INVOICE</h1>
-            <div class="company-info">
-                <b>Ditagihkan kepada:</b><br>
-                {{ $invoice->company->name }}<br>
-                {{-- alamat / kontak nanti --}}
-            </div>
-        </div>
+<div class="company-left">
+<img src="{{ asset('img/Alkon.png') }}">
+<div class="company-name">PT. ALKON BEST MANDIRI</div>
+<div class="company-detail">
+Jl. MT. Haryono, Komplek Balikpapan Baru Blok A1/009<br>
+NPWP : 085.505.558.8-721.000<br>
+📞 +62 542 875565<br>
+✉️ accounting@alkonindo.com
+</div>
+</div>
 
-        <div class="invoice-info">
-            <div>No. Invoice</div>
-            <b>{{ $invoice->invoice_number }}</b><br><br>
-
-            <div>Tanggal Terbit</div>
-            <b>{{ optional($invoice->issued_at)->format('d M Y') }}</b><br><br>
-
-            <span class="status {{ $invoice->status }}">
-                {{ strtoupper($invoice->status) }}
-            </span>
-        </div>
-    </div>
-
-    {{-- ================= ITEMS ================= --}}
-    <table>
-        <thead>
-            <tr>
-                <th style="width: 40px;">#</th>
-                <th>Deskripsi</th>
-                <th class="text-right" style="width: 140px;">Harga</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach ($invoice->items as $i => $item)
-                <tr>
-                    <td>{{ $i + 1 }}</td>
-                    <td>{{ $item->description }}</td>
-                    <td class="text-right">
-                        Rp {{ number_format($item->subtotal, 0, ',', '.') }}
-                    </td>
-                </tr>
-            @endforeach
-        </tbody>
-    </table>
-
-    {{-- ================= SUMMARY ================= --}}
-    <div class="summary">
-        <table>
-            <tr>
-                <td>Total Tagihan</td>
-                <td class="text-right">
-                    Rp {{ number_format($invoice->total_amount, 0, ',', '.') }}
-                </td>
-            </tr>
-            <tr>
-                <td>Sudah Dibayar</td>
-                <td class="text-right">
-                    Rp {{ number_format($invoice->paid_amount, 0, ',', '.') }}
-                </td>
-            </tr>
-            <tr>
-                <td class="total">Sisa Tagihan</td>
-                <td class="text-right total">
-                    Rp {{ number_format($invoice->remainingAmount(), 0, ',', '.') }}
-                </td>
-            </tr>
-        </table>
-    </div>
-
-    {{-- ================= FOOTER ================= --}}
-    <div class="footer">
-        Invoice ini dibuat secara otomatis oleh sistem.<br>
-        Jika ada pertanyaan, silakan hubungi bagian administrasi.
-    </div>
+<div class="invoice-title">
+<h1>INVOICE</h1>
+<b>Bill to:</b><br>
+{{ $invoice->company->name }}
+</div>
 
 </div>
 
+<!-- INFO -->
+<div class="info-bar">
+<div class="info-item">
+<b>Invoice #</b><br>
+{{ $invoice->invoice_number }}
+</div>
+
+<div class="info-item">
+<b>Invoice Date</b><br>
+{{ now()->format('d F Y') }}
+</div>
+
+<div class="info-item">
+<b>Invoice Due</b><br>
+{{ optional($invoice->due_at)->format('d F Y') }}
+</div>
+</div>
+
+<!-- TABLE -->
+<table>
+<thead>
+<tr>
+<th>Item Description</th>
+<th class="text-right">Unit Price</th>
+<th class="text-right">Qty</th>
+<th class="text-right">Amount</th>
+</tr>
+</thead>
+
+<tbody>
+@foreach($invoice->items as $item)
+<tr>
+
+<!-- 🔥 DESKRIPSI DARI CONTROLLER (FINAL) -->
+<td>
+{{ $item->description }}
+</td>
+
+<td class="text-right">
+Rp {{ number_format($item->price,0,',','.') }}
+</td>
+
+<td class="text-right">
+{{ $item->qty }}
+</td>
+
+<td class="text-right">
+Rp {{ number_format($item->subtotal,0,',','.') }}
+</td>
+
+</tr>
+@endforeach
+</tbody>
+</table>
+
+<!-- SUMMARY -->
+<div class="summary">
+<table>
+<tr>
+<td>Subtotal</td>
+<td class="text-right">
+Rp {{ number_format($invoice->total_amount,0,',','.') }}
+</td>
+</tr>
+
+<tr>
+<td>Down Payment (DP)</td>
+<td class="text-right">
+Rp {{ number_format($invoice->paid_amount,0,',','.') }}
+</td>
+</tr>
+
+<tr>
+<td>Tax</td>
+<td class="text-right">Rp 0</td>
+</tr>
+
+<tr>
+<td class="total">TOTAL</td>
+<td class="text-right total">
+Rp {{ number_format($invoice->remainingAmount(),0,',','.') }}
+</td>
+</tr>
+</table>
+</div>
+
+<!-- PAYMENT -->
+<div class="payment">
+<b>Payment Method:</b><br>
+Account : 149-00-3544984-4<br>
+A/C Name : PT. ALKON BEST MANDIRI<br>
+Bank Details : BANK MANDIRI
+</div>
+
+<!-- SIGN -->
+<div class="sign">
+Balikpapan, {{ now()->format('d F Y') }}<br><br><br>
+<b>H.M. Adenuddin Alwy, SE., MM.</b><br>
+Direktur
+</div>
+
+</div>
 </body>
 </html>

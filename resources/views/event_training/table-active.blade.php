@@ -1,71 +1,79 @@
-<table class="w-full border-collapse bg-white">
-    <thead>
-        <tr class="border-b bg-gray-50">
-            <th class="px-4 py-3 text-center w-12">No</th>
-            <th class="px-4 py-3 text-left">Master Training</th>
-            <th class="px-4 py-3 text-left">Job Number</th>
-            <th class="px-4 py-3 text-center">Tanggal</th>
-            <th class="px-4 py-3 text-center w-32">Aksi</th>
-        </tr>
-    </thead>
+<div class="overflow-x-auto">
 
-    <tbody>
-        @forelse ($groups as $i => $group)
+<table class="w-full text-sm">
+<thead>
+<tr class="border-b text-gray-500">
+    <th class="py-4 px-6 text-left">Master Training</th>
+    <th class="px-6 text-left">Job</th>
+    <th class="px-6 text-left">Tanggal</th>
+    <th class="px-6 text-center">Total Event</th>
+    <th class="px-6 text-right">Aksi</th>
+</tr>
+</thead>
 
-            @php
-                $startDate = $group->events->min('tanggal_start');
-                $endDate   = $group->events->max('tanggal_end');
-            @endphp
+<tbody>
+@forelse($groups as $group)
 
-            <tr class="border-b hover:bg-gray-50 transition">
+@php
+$start = $group->events->min('tanggal_start');
+$end   = $group->events->max('tanggal_end');
+@endphp
 
-                {{-- NO --}}
-                <td class="px-4 py-3 text-center text-gray-600">
-                    {{ $groups->firstItem() + $i }}
-                </td>
+<tr class="border-b hover:bg-gray-50 transition">
 
-                {{-- MASTER TRAINING --}}
-                <td class="px-4 py-3 font-semibold text-gray-800">
-                    {{ $group->masterTraining->nama_training ?? '-' }}
-                </td>
+    {{-- MASTER --}}
+    <td class="py-4 px-6 font-semibold text-gray-800">
+        {{ $group->masterTraining->nama_training }}
+    </td>
 
-                {{-- JOB NUMBER --}}
-                <td class="px-4 py-3 text-gray-700">
-                    {{ $group->job_number ?? '-' }}
-                </td>
+    {{-- JOB --}}
+    <td class="px-6 text-gray-600">
+        {{ $group->job_number }}
+    </td>
 
-                {{-- TANGGAL --}}
-                <td class="px-4 py-3 text-center text-gray-600">
-                    @if ($startDate && $endDate)
-                        {{ \Carbon\Carbon::parse($startDate)->format('d') }}
-                        –
-                        {{ \Carbon\Carbon::parse($endDate)->format('d') }}
-                    @else
-                        -
-                    @endif
-                </td>
+    {{-- TANGGAL --}}
+    <td class="px-6 text-gray-600">
+        @if($start && $end)
+            {{ \Carbon\Carbon::parse($start)->format('d M Y') }}
+            —
+            {{ \Carbon\Carbon::parse($end)->format('d M Y') }}
+        @else
+            -
+        @endif
+    </td>
 
-                {{-- AKSI --}}
-                <td class="px-4 py-3 text-center">
-                    <a href="{{ route('event-training.group.show', $group->id) }}"
-                       class="alkon-btn-secondary">
-                        Detail
-                    </a>
-                </td>
+    {{-- TOTAL EVENT --}}
+    <td class="px-6 text-center">
+        <span class="font-semibold text-[#0f3d2e]">
+            {{ $group->events->count() }}
+        </span>
+    </td>
 
-            </tr>
+    {{-- AKSI --}}
+    <td class="px-6 text-right">
+        <a href="{{ route('event-training.group.show',$group->id) }}"
+           class="alkon-btn-primary text-xs">
+            Detail
+        </a>
+    </td>
 
-        @empty
-            <tr>
-                <td colspan="5" class="px-6 py-8 text-center text-gray-500">
-                    Tidak ada data event
-                </td>
-            </tr>
-        @endforelse
-    </tbody>
+</tr>
+
+@empty
+<tr>
+<td colspan="5" class="text-center py-12 text-gray-400">
+Tidak ada event bulan ini
+</td>
+</tr>
+@endforelse
+</tbody>
 </table>
 
-{{-- PAGINATION --}}
-<div class="mt-4">
-    {{ $groups->links() }}
 </div>
+
+{{-- PAGINATION --}}
+@if($groups->hasPages())
+<div class="mt-6 flex justify-center">
+{{ $groups->links() }}
+</div>
+@endif

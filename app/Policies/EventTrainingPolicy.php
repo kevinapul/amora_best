@@ -50,11 +50,11 @@ class EventTrainingPolicy
         return in_array($user->role, ['marketing', 'it']);
     }
 
-    public function update(User $user, EventTraining $event): bool
-    {
-        return in_array($user->role, ['marketing', 'it'])
-            && ! in_array($event->status, ['on_progress', 'done']);
-    }
+public function update(User $user, EventTraining $event): bool
+{
+    return in_array($user->role, ['marketing','it'])
+        && $event->status === 'pending';
+}
 
     public function delete(User $user, EventTraining $event): bool
     {

@@ -1,108 +1,87 @@
 <x-app-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+<div class="alkon-root py-10">
+<div class="max-w-3xl mx-auto space-y-6">
+
+
+{{-- HEADER --}}
+<div class="alkon-status">
+    <div>
+        <h2 class="text-xl font-semibold">
             Tambah Instruktur / Training Officer
         </h2>
-    </x-slot>
-
-    <div class="py-12">
-        <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
-
-            <div class="bg-white shadow-md sm:rounded-lg p-6">
-
-                {{-- INFO EVENT --}}
-                <div class="mb-6">
-                    <h3 class="text-lg font-semibold">
-                        {{ $event->training->name }}
-                    </h3>
-                    <p class="text-gray-600 text-sm">
-                        {{ $event->tanggal }} — {{ $event->tempat }}
-                    </p>
-                </div>
-
-                <form action="{{ route('event-staff.store', $event->id) }}" method="POST">
-                    @csrf
-
-                    {{-- ================= INSTRUKTUR ================= --}}
-                    <div class="mb-5">
-                        <label class="block font-semibold mb-1">
-                            Instruktur <span class="text-xs text-gray-500">(maks. 2)</span>
-                        </label>
-
-                        <select name="instrukturs[]" multiple
-                                class="w-full border rounded p-2"
-                                size="3">
-                            @foreach ([
-                                'Windhian Krisanto',
-                                'Abdul Rasid',
-                                'Edy Sulistiono'
-                            ] as $name)
-                                <option value="{{ $name }}">{{ $name }}</option>
-                            @endforeach
-                        </select>
-
-                        <p class="text-xs text-gray-500 mt-1">
-                            Tahan <b>Ctrl</b> (Windows) / <b>Cmd</b> (Mac) untuk memilih lebih dari satu
-                        </p>
-
-                        @error('instrukturs')
-                            <p class="text-sm text-red-600 mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    {{-- ================= TRAINING OFFICER ================= --}}
-                    <div class="mb-6">
-                        <label class="block font-semibold mb-1">
-                            Training Officer <span class="text-xs text-gray-500">(maks. 2)</span>
-                        </label>
-
-                        <select name="training_officers[]" multiple
-                                class="w-full border rounded p-2"
-                                size="5">
-                            @foreach ([
-                                'Edy Sulistiono',
-                                'Rizky',
-                                'Sahrul Alam',
-                                'Sausan',
-                                'Nyoman'
-                            ] as $name)
-                                <option value="{{ $name }}">{{ $name }}</option>
-                            @endforeach
-                        </select>
-
-                        @error('training_officers')
-                            <p class="text-sm text-red-600 mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    {{-- ================= ACTION ================= --}}
-                    <div class="flex gap-2">
-                        <button type="submit"
-                                class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                            Simpan
-                        </button>
-
-                        <a href="{{ route('event-staff.show', $event->id) }}"
-                           class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
-                            Batal
-                        </a>
-                    </div>
-
-                </form>
-            </div>
-        </div>
+        <p class="text-sm text-gray-200">
+            {{ $event->training->name }}
+        </p>
     </div>
+</div>
 
-    {{-- ================= LIMIT SELECT MAX 2 (FRONTEND GUARD) ================= --}}
-    <script>
-        document.querySelectorAll('select[multiple]').forEach(select => {
-            select.addEventListener('change', function () {
-                if (this.selectedOptions.length > 2) {
-                    alert('Maksimal 2 orang per pilihan');
-                    this.selectedOptions[this.selectedOptions.length - 1].selected = false;
-                }
-            });
-        });
-    </script>
+<div class="alkon-panel">
+<div class="alkon-panel-body">
 
+    <form action="{{ route('event-staff.store',$event->id) }}" method="POST">
+        @csrf
+
+        {{-- ================= INSTRUKTUR ================= --}}
+        <div class="mb-6">
+            <label class="text-sm font-semibold">
+                Instruktur (max 2)
+            </label>
+
+            @for($i=0;$i<2;$i++)
+                <input type="text"
+                    name="instrukturs[]"
+                    class="alkon-input mt-2"
+                    placeholder="Nama instruktur..."
+                    {{ $instrukturCount >= 2 ? 'disabled' : '' }}>
+            @endfor
+
+            @if($instrukturCount >= 2)
+                <p class="text-xs text-red-500 mt-1">
+                    Maksimal instruktur sudah tercapai
+                </p>
+            @endif
+        </div>
+
+        {{-- ================= OFFICER ================= --}}
+        <div class="mb-6">
+            <label class="text-sm font-semibold">
+                Training Officer (max 2)
+            </label>
+
+            @for($i=0;$i<2;$i++)
+                <input type="text"
+                    name="training_officers[]"
+                    class="alkon-input mt-2"
+                    placeholder="Nama training officer..."
+                    {{ $officerCount >= 2 ? 'disabled' : '' }}>
+            @endfor
+
+            @if($officerCount >= 2)
+                <p class="text-xs text-red-500 mt-1">
+                    Maksimal officer sudah tercapai
+                </p>
+            @endif
+        </div>
+
+        {{-- ACTION --}}
+        <div class="flex gap-3">
+            <button class="alkon-btn-primary"
+                {{ ($instrukturCount>=2 && $officerCount>=2)?'disabled':'' }}>
+                Simpan
+            </button>
+
+            <a href="{{ route('event-staff.show',$event->id) }}"
+                class="alkon-btn-secondary">
+                Kembali
+            </a>
+        </div>
+
+    </form>
+
+</div>
+</div>
+
+
+</div>
+</div>
 </x-app-layout>

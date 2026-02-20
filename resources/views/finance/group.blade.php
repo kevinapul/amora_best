@@ -18,7 +18,7 @@
         if ($selectedCompanyId && !$isInhouse) {
             $participants = $group->events
                 ->flatMap(fn($e) => $e->participants)
-                ->where('company_id', $selectedCompanyId);
+                ->filter(fn($p) => $p->pivot->company_id == $selectedCompanyId);
         }
     @endphp
 
@@ -104,7 +104,9 @@
                             @csrf
                             <input type="hidden" name="company_id" value="{{ $selectedCompanyId }}">
 
-                            <button class="alkon-btn primary">
+                            <button type="submit"
+                                onclick="this.disabled=true; this.innerText='Membuat...'; this.form.submit();"
+                                class="alkon-btn primary">
                                 Buat / Buka Invoice
                             </button>
                         </form>

@@ -1,147 +1,142 @@
 <x-app-layout>
 
-    <div class="alkon-root">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="alkon-root py-10">
+        <div class="max-w-7xl mx-auto space-y-6">
 
-            <!-- ================= HEADER ================= -->
-            <div class="alkon-panel mb-6">
-                <div class="alkon-panel-body flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
-                        <h1 class="text-2xl font-semibold text-gray-900">
-                            📅 Event Training
-                        </h1>
-                        <p class="text-sm text-gray-500 mt-1">
-                            Kelola event training aktif dan pending.
-                        </p>
+            {{-- HEADER --}}
+            <div class="alkon-status flex justify-between items-center">
+                <div>
+                    <h2 class="text-xl font-semibold">
+                        Event Training Management
+                    </h2>
+                    <p class="text-sm text-gray-200">
+                        Monitoring event aktif & pending
+                    </p>
+                </div>
+
+                <a href="{{ route('event-training.create') }}" class="alkon-btn-primary">
+                    + Tambah Event
+                </a>
+            </div>
+
+
+            {{-- FILTER BULAN + SEARCH --}}
+            <div class="alkon-panel">
+                <div class="alkon-panel-body flex flex-col md:flex-row md:items-center gap-3 md:justify-between">
+
+                    <form method="GET" class="flex gap-3">
+
+                        {{-- FILTER BULAN --}}
+                        <select name="month" onchange="this.form.submit()" class="alkon-input w-56">
+
+                            @for ($m = 1; $m <= 12; $m++)
+                                @php
+                                    $val = date('Y') . '-' . str_pad($m, 2, '0', STR_PAD_LEFT);
+                                    $label = \Carbon\Carbon::create()->month($m)->format('F');
+                                @endphp
+
+                                <option value="{{ $val }}" {{ $month == $val ? 'selected' : '' }}>
+                                    {{ $label }} {{ date('Y') }}
+                                </option>
+                            @endfor
+                        </select>
+
+                        {{-- SEARCH --}}
+                        <input type="text" name="search" value="{{ $search }}"
+                            placeholder="Cari job / training..." class="alkon-input w-64">
+
+                        <button class="alkon-btn-secondary text-xs">
+                            Filter
+                        </button>
+                    </form>
+
+                    <div class="text-xs text-gray-500">
+                        Menampilkan event bulan terpilih
                     </div>
 
-                    <a href="{{ route('event-training.create') }}" class="alkon-btn-primary">
-                        + Tambah Event
-                    </a>
                 </div>
             </div>
 
-            <!-- ================= TAB + SEARCH ================= -->
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
 
-                <!-- TABS -->
-                <div class="flex gap-2">
-                    <button id="tab-active" class="tab-btn-active px-4 py-2 rounded-md border text-sm font-medium">
-                        📌 Event Aktif
+            {{-- TAB --}}
+            <div class="flex gap-2">
+                <button id="tab-active" class="tab-btn-active px-4 py-2 rounded-md text-sm">
+                    📌 Event Aktif
+                </button>
+
+                @if ($groupsPending)
+                    <button id="tab-pending" class="tab-btn-inactive px-4 py-2 rounded-md text-sm">
+                        ⏳ Pending Approval
                     </button>
-
-                    <button id="tab-pending" class="tab-btn-inactive px-4 py-2 rounded-md border text-sm font-medium">
-                        ⏳ Event Pending
-                    </button>
-                </div>
-
-                <!-- SEARCH -->
-                <input type="text" id="search" placeholder="Cari master / job number..."
-                    class="w-full sm:w-72 px-3 py-2 rounded-lg border border-gray-300
-                           focus:outline-none focus:ring-2 focus:ring-[var(--alkon-green)]"
-                    value="{{ $search ?? '' }}">
+                @endif
             </div>
 
-            <!-- ================= CONTENT ================= -->
 
-            <!-- EVENT AKTIF -->
+            {{-- ACTIVE --}}
             <div id="content-active" class="alkon-panel">
                 <div class="alkon-panel-body p-0">
-                    <div id="table-active">
-                        @include('event_training.table-active', [
-                            'groups' => $groupsActive,
-                        ])
-                    </div>
+                    @include('event_training.table-active', ['groups' => $groupsActive])
                 </div>
             </div>
 
-            <!-- EVENT PENDING -->
+
+            {{-- PENDING --}}
             @if ($groupsPending)
-                <div id="content-pending" class="alkon-panel hidden mt-4">
+                <div id="content-pending" class="alkon-panel hidden">
                     <div class="alkon-panel-body p-0">
-                        <div id="table-pending">
-                            @include('event_training.table-pending', [
-                                'groups' => $groupsPending,
-                            ])
-                        </div>
+                        @include('event_training.table-pending', ['groups' => $groupsPending])
                     </div>
                 </div>
             @endif
 
+
         </div>
     </div>
 
-    <!-- ================= SCRIPT (SEARCH + TAB) ================= -->
+
+    {{-- TAB SCRIPT --}}
     <script>
-        // SEARCH (ASLI, TIDAK DIUBAH)
-        const search = document.getElementById('search');
-        let t = null;
-
-        search.addEventListener('input', () => {
-            clearTimeout(t);
-            t = setTimeout(() => {
-                fetch(`{{ route('event-training.index') }}?search=${search.value}`)
-                    .then(r => r.text())
-                    .then(html => {
-                        const d = new DOMParser().parseFromString(html, 'text/html');
-                        document.getElementById('table-active').innerHTML =
-                            d.querySelector('#table-active').innerHTML;
-
-                        if (d.querySelector('#table-pending')) {
-                            document.getElementById('table-pending').innerHTML =
-                                d.querySelector('#table-pending').innerHTML;
-                        }
-                    });
-            }, 300);
-        });
-
-        // TAB SWITCH
         const tabActive = document.getElementById('tab-active');
         const tabPending = document.getElementById('tab-pending');
         const contentActive = document.getElementById('content-active');
         const contentPending = document.getElementById('content-pending');
 
-        tabActive.addEventListener('click', () => {
+        tabActive?.addEventListener('click', () => {
             tabActive.classList.add('tab-btn-active');
             tabActive.classList.remove('tab-btn-inactive');
 
-            tabPending.classList.add('tab-btn-inactive');
-            tabPending.classList.remove('tab-btn-active');
+            tabPending?.classList.remove('tab-btn-active');
+            tabPending?.classList.add('tab-btn-inactive');
 
             contentActive.classList.remove('hidden');
             contentPending?.classList.add('hidden');
         });
 
-        tabPending.addEventListener('click', () => {
+        tabPending?.addEventListener('click', () => {
             tabPending.classList.add('tab-btn-active');
             tabPending.classList.remove('tab-btn-inactive');
 
-            tabActive.classList.add('tab-btn-inactive');
             tabActive.classList.remove('tab-btn-active');
+            tabActive.classList.add('tab-btn-inactive');
 
-            contentPending?.classList.remove('hidden');
+            contentPending.classList.remove('hidden');
             contentActive.classList.add('hidden');
         });
     </script>
 
-    <!-- ================= TAB STYLE ================= -->
+
     <style>
         .tab-btn-active {
             background: white;
-            border: 2px solid var(--alkon-green);
-            color: var(--alkon-green);
+            border: 2px solid #0f3d2e;
+            color: #0f3d2e;
             font-weight: 600;
         }
 
         .tab-btn-inactive {
-            background: #f9fafb;
-            border: 2px solid #d1d5db;
+            background: #f3f4f6;
+            border: 2px solid #e5e7eb;
             color: #374151;
-        }
-
-        .tab-btn-inactive:hover {
-            border-color: var(--alkon-green);
-            color: var(--alkon-green);
         }
     </style>
 

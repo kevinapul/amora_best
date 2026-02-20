@@ -46,22 +46,23 @@ class EventTraining extends Model
         return $this->belongsTo(EventTrainingGroup::class);
     }
 
-    public function participants()
-    {
-        return $this->belongsToMany(Participant::class, 'event_participants')
-            ->using(EventParticipant::class)
-            ->withPivot([
-                'jenis_layanan',
-                'harga_peserta',
-                'paid_amount',
-                'remaining_amount',
-                'is_paid',
-                'paid_at',
-                'certificate_ready',
-                'certificate_issued_at',
-            ])
-            ->withTimestamps();
-    }
+public function participants()
+{
+    return $this->belongsToMany(Participant::class, 'event_participants')
+        ->using(EventParticipant::class)
+        ->withPivot([
+            'company_id', // 🔥 WAJIB ADA INI
+            'jenis_layanan',
+            'harga_peserta',
+            'paid_amount',
+            'remaining_amount',
+            'is_paid',
+            'paid_at',
+            'certificate_ready',
+            'certificate_issued_at',
+        ])
+        ->withTimestamps();
+}
 
     public function certificates()
     {
@@ -307,4 +308,10 @@ public function isCompanyPaid(int $companyId): bool
 
     return $group->isCompanyPaid($companyId);
 }
+
+public function group()
+{
+    return $this->belongsTo(EventTrainingGroup::class,'event_training_group_id');
+}
+
 }

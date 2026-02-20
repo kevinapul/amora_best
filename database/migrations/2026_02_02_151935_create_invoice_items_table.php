@@ -15,23 +15,24 @@ Schema::create('invoice_items', function (Blueprint $table) {
     $table->id();
 
     $table->foreignId('invoice_id')
-          ->constrained()
-          ->cascadeOnDelete();
+        ->constrained()
+        ->cascadeOnDelete();
 
     $table->foreignId('event_training_group_id')
-          ->nullable()
-          ->constrained()
-          ->nullOnDelete();
+        ->nullable()
+        ->constrained()
+        ->nullOnDelete();
 
     $table->string('description');
     $table->integer('qty')->default(1);
-    $table->decimal('price', 15, 2);
-    $table->decimal('subtotal', 15, 2);
+    $table->decimal('price',15,2);
+    $table->decimal('subtotal',15,2);
 
     $table->integer('order')->default(0);
 
     $table->timestamps();
 });
+
 
     }
 

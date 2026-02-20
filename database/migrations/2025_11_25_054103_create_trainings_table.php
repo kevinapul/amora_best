@@ -8,21 +8,20 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('trainings', function (Blueprint $table) {
-            $table->id();
+Schema::create('trainings', function (Blueprint $table) {
+    $table->id();
 
-            $table->foreignId('master_training_id')
-                  ->constrained('master_trainings')
-                  ->cascadeOnDelete();
+    $table->foreignId('master_training_id')
+        ->constrained()
+        ->cascadeOnDelete();
 
-            $table->string('code'); // contoh: RF-BASIC
-            $table->string('name'); // contoh: Rigging Forklift Basic
-            $table->text('description')->nullable();
+    $table->string('code');
+    $table->string('name');
+    $table->text('description')->nullable();
 
-            $table->timestamps();
+    $table->timestamps();
+});
 
-            $table->index('master_training_id');
-        });
     }
 
     public function down(): void

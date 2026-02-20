@@ -9,16 +9,26 @@ class CreateParticipantsTable extends Migration
     public function up()
     {
         Schema::create('participants', function (Blueprint $table) {
-            $table->id();
-            $table->string('nama');
-            $table->string('perusahaan')->nullable();
-            $table->string('no_hp')->nullable();
-            $table->string('alamat')->nullable();
-            $table->string('nik')->nullable();
-            $table->date('tanggal_lahir')->nullable();
-            $table->text('catatan')->nullable();
-            $table->timestamps();
-        });
+    $table->id();
+
+    $table->string('nik')->nullable()->unique();
+    $table->string('nama');
+    $table->string('no_hp')->nullable();
+    $table->string('alamat')->nullable();
+    $table->date('tanggal_lahir')->nullable();
+    $table->text('catatan')->nullable();
+
+    // perusahaan terakhir (opsional UI cepat)
+    $table->foreignId('last_company_id')
+        ->nullable()
+        ->constrained('companies')
+        ->nullOnDelete();
+
+    $table->timestamps();
+
+    $table->index('nama');
+});
+
     }
 
     public function down()

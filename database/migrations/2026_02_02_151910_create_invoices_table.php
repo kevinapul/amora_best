@@ -14,28 +14,16 @@ return new class extends Migration
 Schema::create('invoices', function (Blueprint $table) {
     $table->id();
 
-    $table->foreignId('company_id')
-          ->references('id')
-          ->on('companies')
-          ->cascadeOnDelete();
-
-    $table->foreignId('master_training_id')
-          ->references('id')
-          ->on('master_trainings')
-          ->cascadeOnDelete();
+    $table->foreignId('company_id')->constrained()->cascadeOnDelete();
+    $table->foreignId('master_training_id')->constrained()->cascadeOnDelete();
 
     $table->string('invoice_number')->unique();
 
-    $table->decimal('total_amount', 15, 2)->default(0);
-    $table->decimal('paid_amount', 15, 2)->default(0);
+    $table->decimal('total_amount',15,2)->default(0);
+    $table->decimal('paid_amount',15,2)->default(0);
 
-    $table->enum('status', [
-        'draft',
-        'sent',
-        'partial',
-        'paid',
-        'cancelled',
-    ])->default('draft');
+    $table->enum('status',['draft','sent','partial','paid','cancelled'])
+        ->default('draft');
 
     $table->date('issued_at')->nullable();
     $table->date('due_at')->nullable();
@@ -45,6 +33,7 @@ Schema::create('invoices', function (Blueprint $table) {
 
     $table->timestamps();
 });
+
 
 
     }

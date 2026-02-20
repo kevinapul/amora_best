@@ -3,6 +3,7 @@
         <h2 class="font-semibold text-xl text-gray-800">
             Administrasi Sertifikat Training
         </h2>
+
     </x-slot>
 
     <div class="py-6 max-w-7xl mx-auto space-y-6">
